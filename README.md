@@ -11,8 +11,15 @@ Install the skill into the game project you want the agent to work on. The CLI e
 
 **Ask your AI coding agent to install it:**
 
-> Install the weixin-game skill from https://github.com/gilzero/weixin-game-skill for this project and this agent.
-> Use the matching installation route below, preserve the complete skill folder, and verify that the agent discovers it.
+```text
+Install the weixin-game skill from:
+https://github.com/gilzero/weixin-game-skill
+
+Install it for this project and the coding agent you are running in.
+Follow the README’s matching installation instructions.
+Preserve the complete skill folder, including references, scripts, and assets.
+Verify that you can discover and load the skill, and report its installed path.
+```
 
 **Claude Code:** use its [plugin installer](https://code.claude.com/docs/en/discover-plugins):
 
@@ -72,15 +79,7 @@ The optional official `wechatide` skill can assist verification, but its game su
 ```text
 skills/weixin-game/
 ├── SKILL.md              Core rules and where to go next
-├── references/           Loaded only when the topic comes up
-│   ├── platform-facts.md          Limits, browser-to-WeChat table, commonly wrong APIs
-│   ├── rendering-and-layout.md    Canvas, loop, layout and porting
-│   ├── input-audio-lifecycle.md   Touch, audio, lifecycle and diagnostics
-│   ├── assets-and-network.md      Packages, files, storage and network
-│   ├── social-and-open-data.md    Leaderboards, sharing and social features
-│   ├── monetization.md            Ads and virtual payment
-│   ├── performance.md             Memory, Workers, startup
-│   ├── privacy-and-release.md     Login, privacy, updates, release checklist
+├── references/           Platform, rendering, audio, assets, social, payment, performance and release
 │   ├── engines.md                 Source/build routing, runtime profiles, desktop and textures
 │   ├── tooling-and-backend.md     Official agent tooling and optional CloudBase route
 │   └── capability-map.md          Social, multiplayer, operations and diagnostics lookup
