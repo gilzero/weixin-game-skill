@@ -1,0 +1,19 @@
+{
+  "description": "WeChat mini game starter",
+  "projectname": "weixin-game-starter",
+  "compileType": "game",
+  "appid": "touristappid",
+  "libVersion": "latest",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "minified": true,
+    "postcss": false
+  },
+  "condition": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  }
+}

@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 
+# Tool caches
+.eslintcache
+
+# Local secrets
+.env
+.env.local
+
 # IDE
 .idea/
 .vscode/

@@ -1,0 +1,12 @@
+{
+  "name": "weixin-game-skill",
+  "description": "WeChat mini game (微信小游戏) development skill",
+  "owner": { "name": "gilzero" },
+  "plugins": [
+    {
+      "name": "weixin-game",
+      "source": "./",
+      "description": "Build, debug and ship WeChat mini games (微信小游戏) with verified platform rules, a runnable starter and live docs lookup."
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+# @file: docs-drift.yml
+# @desc: weekly check against live WeChat docs
+name: Docs drift
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Compare the skill with the live docs
+        run: bun run check:docs 2>&1 | tee drift.log
+        shell: bash -o pipefail {0}
+      - name: Open an issue if nothing is tracking this yet
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --state open --search 'WeChat docs drift in:title' --json number --jq 'length')
+          if [ "$existing" = "0" ]; then
+            gh issue create --title 'WeChat docs drift detected' --body "$(printf 'The weekly check failed. Run `bun run check:docs` locally, re-read the pages it names, and update the references.\n\n```\n%s\n```' "$(tail -c 3000 drift.log)")"
+          fi

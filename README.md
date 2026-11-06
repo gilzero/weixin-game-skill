@@ -1,156 +1,112 @@
-# 微信小游戏开发 Skill
+# WeChat Mini Game Skill
 
-一个 Claude Code Skill，用于指导 AI 在开发微信小游戏时遵循技术限制和最佳实践。
+Teaches Claude Code and other agents how to build, debug and ship WeChat mini games (微信小游戏) correctly: verified
+platform rules, a starter that runs with no build step, and a way to read the current official docs.
 
-## 功能特点
+让 AI 编程助手正确开发微信小游戏：经过核对的平台规则、无需构建即可运行的起步项目，以及随时读取最新官方文档的方法。
 
-- 🎯 **自动触发**：检测到微信小游戏开发场景时自动激活
-- 📋 **技术限制清单**：完整的 API 差异对照表
-- 💡 **代码示例**：包含常用功能的适配代码
-- ⚡ **性能优化**：对象池、离屏渲染等优化方案
-- 📱 **屏幕适配**：多分辨率适配解决方案
+## Install
 
-## 安装方法
-
-### 方法一：项目级安装（推荐）
-
-将 skill 文件复制到你的微信小游戏项目的 `.claude/skills/` 目录：
+**Claude Code (recommended).** One command, with updates through the plugin system:
 
 ```bash
-# 进入你的微信小游戏项目
-cd your-minigame-project
-
-# 创建 skills 目录
-mkdir -p .claude/skills
-
-# 下载 skill 文件
-curl -o .claude/skills/weixin-game.md https://raw.githubusercontent.com/wukaikailive/weixin-game-skill/main/skill.md
+claude plugin marketplace add gilzero/weixin-game-skill
+claude plugin install weixin-game@weixin-game-skill
 ```
 
-或者手动创建文件：
+**Other agents (Codex, Cursor and more)**, using the open [skills CLI](https://github.com/vercel-labs/skills):
 
 ```bash
-# 创建目录
-mkdir -p .claude/skills
-
-# 将 skill.md 内容复制到 .claude/skills/weixin-game.md
+bunx skills add gilzero/weixin-game-skill
 ```
 
-### 方法二：全局安装
-
-将 skill 安装到用户目录，所有项目都可以使用：
+**Manual**, for a single project or to pin a version:
 
 ```bash
-# macOS/Linux
-mkdir -p ~/.claude/skills
-curl -o ~/.claude/skills/weixin-game.md https://raw.githubusercontent.com/wukaikailive/weixin-game-skill/main/skill.md
-
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/wukaikailive/weixin-game-skill/main/skill.md" -OutFile "$env:USERPROFILE\.claude\skills\weixin-game.md"
+git clone https://github.com/gilzero/weixin-game-skill.git
+mkdir -p your-game/.claude/skills
+cp -R weixin-game-skill/skills/weixin-game your-game/.claude/skills/
 ```
 
-### 方法三：克隆完整仓库
+Use `~/.claude/skills/` instead to enable it in every project. Start a new session afterwards.
+
+**Getting updates.** Plugin updates are off by default for third-party marketplaces. Turn them on in `/plugin` under
+Marketplaces, or run `claude plugin update weixin-game@weixin-game-skill`. With the skills CLI, run `bunx skills update`.
+
+## Use
+
+There is nothing to invoke. Describe what you want, and the skill loads when the task involves a mini game:
+
+```text
+帮我做一个微信小游戏：点击下落的方块得分
+Add a friends leaderboard to my WeChat mini game
+这个 canvas 在真机上很模糊，右上角按钮还挡住了分数
+Our game is 6MB and won't upload. How do we split it?
+```
+
+For a new game it copies a starter project you can open straight away in
+[WeChat DevTools](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html). Import the folder and choose
+测试号 if you do not have an AppID yet. The placeholder `touristappid` only works through that import window, not the
+DevTools CLI.
+
+## What's included
+
+```text
+skills/weixin-game/
+├── SKILL.md              Core rules and where to go next
+├── references/           Loaded only when the topic comes up
+│   ├── platform-facts.md          Limits, browser-to-WeChat table, commonly wrong APIs
+│   ├── rendering-and-layout.md    Canvas, sharpness, game loop, menu button, safe area, porting
+│   ├── input-audio-lifecycle.md   Touch, audio, background and foreground, errors
+│   ├── assets-and-network.md      Subpackages, downloads, files, storage, network
+│   ├── social-and-open-data.md    Leaderboards, sharing, user info
+│   ├── monetization.md            Ads and virtual payment
+│   ├── performance.md             Memory, Workers, startup
+│   └── privacy-and-release.md     Login, privacy, updates, release checklist
+├── assets/starter/       Runnable project with a small sample game
+└── scripts/wx-doc.sh     Find and read live docs
+```
+
+The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch, audio interruptions,
+storage, sharing and update prompts. Replace `js/game/` with your game.
+
+## Staying current
+
+WeChat changes its limits and APIs regularly, so the skill does not rely on a frozen copy:
+
+- **The live docs win.** Any official page is available as clean Markdown by changing `.html` to `.md`. The skill tells
+  the agent to check them, and `scripts/wx-doc.sh` makes that one command.
+- **Every reference is dated.** Each file states when it was last checked against the docs.
+- **Drift is detected.** `bun run check:docs` compares key facts, every doc link and every `wx.*` API the skill mentions
+  with the live site. A weekly GitHub Action runs it and opens an issue if something changed.
+
+## What's been tested
+
+| Check                                                   | How                           |
+| ------------------------------------------------------- | ----------------------------- |
+| Starter logic and platform code against a mocked `wx`   | Automated, `bun qc`           |
+| Doc snippets against the official `wx` type definitions | Automated, `bun qc`           |
+| Facts, links and API names against the live docs        | Automated, weekly             |
+| All three install routes                                | Run by hand                   |
+| A real round in headless Chromium on four screen shapes | Run by hand, with a stub `wx` |
+| WeChat DevTools and real phones                         | **Not yet run**               |
+
+Nothing here has run inside WeChat itself, so check DevTools and real iOS and Android phones before you ship. The docs also
+leave some things open, such as `ctx.roundRect` support and `#rrggbbaa` colours. The skill says so and uses feature
+detection instead of guessing.
+
+## Contributing
 
 ```bash
-# 克隆仓库
-git clone https://github.com/wukaikailive/weixin-game-skill.git
-
-# 复制 skill 到项目
-cp weixin-game-skill/skill.md your-project/.claude/skills/weixin-game.md
-
-# 复制示例代码（可选）
-cp -r weixin-game-skill/examples your-project/
+bun install
+bun qc              # format, lint, type check, test
+bun run check:docs  # compare with the live docs (needs network)
 ```
 
-## 使用方法
+See [AGENTS.md](AGENTS.md) for how the repo is organised and how to update a fact.
 
-安装后，Claude Code 会在以下场景自动激活此 skill：
+## Credits and license
 
-1. 提到"微信小游戏"、"小游戏开发"等关键词
-2. 代码中使用 `wx.createCanvas()`、`wx.onTouchStart()` 等 API
-3. 项目包含 `game.json` 或 `project.config.json` 配置文件
+Based on [wukaikailive/weixin-game-skill](https://github.com/wukaikailive/weixin-game-skill). [MIT](LICENSE).
 
-### 示例对话
-
-```
-你: 帮我创建一个微信小游戏的触摸事件管理器
-Claude: [自动应用 skill，使用 wx.onTouchStart 等 API]
-```
-
-```
-你: 这个 canvas 代码在微信小游戏中报错
-Claude: [检测到微信环境，提示 document.createElement 不支持，建议使用 wx.createCanvas()]
-```
-
-## 项目结构
-
-```
-weixin-game-skill/
-├── README.md                    # 说明文档
-├── skill.md                     # Skill 定义文件（安装此文件）
-├── weixin.MD                    # 技术参考文档
-├── LICENSE                      # MIT 许可证
-└── examples/                    # 示例代码
-    ├── game.json               # 游戏配置示例
-    ├── InputManager.js         # 触摸事件管理器
-    ├── AudioManager.js         # 音频管理器
-    ├── ScreenAdapter.js        # 屏幕适配器
-    └── ObjectPool.js           # 对象池实现
-```
-
-## 在项目中使用示例代码
-
-```bash
-# 复制需要的示例文件到你的项目
-cp examples/InputManager.js your-project/js/managers/
-cp examples/AudioManager.js your-project/js/managers/
-cp examples/ScreenAdapter.js your-project/js/utils/
-cp examples/ObjectPool.js your-project/js/utils/
-```
-
-## 技术限制覆盖
-
-| 类别 | 限制内容 |
-|------|---------|
-| 运行环境 | 无 `window`/`document`/DOM API |
-| 包大小 | 主包 4MB，分包总 20MB |
-| Canvas | `roundRect()` 不支持，需手动实现 |
-| 网络 | 仅 HTTPS，需配置合法域名 |
-| 音频 | 需用户交互后才能播放 |
-| WebGL | 仅支持 WebGL1 |
-| 触摸 | 全局事件，非 Canvas 事件 |
-
-## API 适配速查
-
-| 浏览器 API | 微信小游戏 API |
-|-----------|---------------|
-| `window` | `globalThis` |
-| `document.createElement('canvas')` | `wx.createCanvas()` |
-| `new Image()` | `wx.createImage()` |
-| `localStorage` | `wx.setStorageSync()` |
-| `new Audio()` | `wx.createInnerAudioContext()` |
-| `fetch()` | `wx.request()` |
-| `addEventListener('touchstart')` | `wx.onTouchStart()` |
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request 来完善这个 skill！
-
-### 开发指南
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
-
-## 许可证
-
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
-## 相关资源
-
-- [微信小游戏官方文档](https://developers.weixin.qq.com/minigame/dev/guide/)
-- [微信小游戏 API 文档](https://developers.weixin.qq.com/minigame/dev/api/)
-- [Claude Code 文档](https://docs.anthropic.com/claude-code)
+WeChat and 微信 are trademarks of Tencent. This is an independent project and is not affiliated with Tencent.

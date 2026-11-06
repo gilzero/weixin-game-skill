@@ -1,0 +1,31 @@
+// @file: storage.js
+// @desc: safe wrapper around wx storage
+function createStorage(keyPrefix) {
+  const fullKey = key => `${keyPrefix}:${key}`;
+
+  return {
+    load(key, fallback) {
+      try {
+        const stored = wx.getStorageSync(fullKey(key));
+        // A missing key comes back as an empty string rather than undefined.
+        return stored === '' || stored === undefined ? fallback : stored;
+      } catch (error) {
+        console.error('storage load failed', key, error);
+        return fallback;
+      }
+    },
+
+    // Returns false when full, because a key holds 1MB and a game holds 10MB per user.
+    save(key, value) {
+      try {
+        wx.setStorageSync(fullKey(key), value);
+        return true;
+      } catch (error) {
+        console.error('storage save failed', key, error);
+        return false;
+      }
+    },
+  };
+}
+
+module.exports = { createStorage };

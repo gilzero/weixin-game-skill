@@ -1,0 +1,76 @@
+{
+  "skill_name": "weixin-game",
+  "evals": [
+    {
+      "id": 1,
+      "name": "hud-layout-and-touch",
+      "prompt": "我的微信小游戏（竖屏，原生 canvas，没用引擎）在 iPhone 14 上分数被右上角胶囊按钮挡住了，而且画面有点糊。帮我写一个 js/hud.js 模块：负责初始化主 canvas，顶部显示分数和一个暂停按钮，底部放一个开始按钮，并处理这些按钮的点击（要支持多指，手指滑走不算点击）。把最终代码写到 outputs/hud.js，并在 outputs/notes.md 里简短说明你的布局依据。",
+      "expected_output": "A module that uses the real menu button rect, handles a missing safeArea, scales the canvas by pixel ratio and reads changedTouches.",
+      "files": [],
+      "expectations": [
+        "Uses wx.getMenuButtonBoundingClientRect to position UI",
+        "Does not hardcode the menu button size as the primary source",
+        "Uses wx.getWindowInfo rather than only wx.getSystemInfoSync",
+        "Guards against safeArea being absent",
+        "Sets canvas size using pixelRatio and applies a context scale or transform",
+        "Reads changedTouches when handling touch end",
+        "Handles wx.onTouchCancel without treating it as a tap"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "friend-leaderboard",
+      "prompt": "Add a friends leaderboard to my WeChat mini game. I have a working main canvas game loop in game.js with `ctx` and `requestAnimationFrame`. Write everything needed: the game.json change, the main-game code, and the open data context code. Put the files in outputs/ (outputs/game.json, outputs/leaderboard-main.js, outputs/open-data/index.js) and list anything I must also set up in outputs/notes.md.",
+      "expected_output": "An open data context leaderboard that draws on the shared canvas, redraws it from the main loop and guards missing data.",
+      "files": [],
+      "expectations": [
+        "game.json declares openDataContext",
+        "The open data code gets its canvas from wx.getSharedCanvas",
+        "The open data code does not draw the ranking on a canvas from wx.createCanvas",
+        "The main game draws the shared canvas repeatedly in the frame loop rather than once",
+        "Guards against a friend having an empty or missing KVDataList entry",
+        "The notes mention scope.WxFriendInteraction or the privacy policy requirement",
+        "The notes or code mention restrictions on the main canvas once open data is enabled"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "share-ads-and-payment",
+      "prompt": "我们的微信小游戏要加三个功能：1）通关后点按钮分享给好友，分享成功就送 50 金币；右上角菜单也要能转发。2）看激励视频复活。3）商店里卖金币（虚拟支付），付款成功就加金币。请写 outputs/monetize.js，并在 outputs/notes.md 里说明上线前必须知道的限制和需要的后台配置。如果需求本身有问题请直接指出。",
+      "expected_output": "Correct share, rewarded ad and payment code, pushing back on share-success rewards and on granting currency from the client callback.",
+      "files": [],
+      "expectations": [
+        "Calls wx.showShareMenu so the menu share entry is enabled",
+        "Does not pass success or fail callbacks to wx.shareAppMessage",
+        "Does not use a toGroup parameter",
+        "States that a share success cannot be detected, so the reward needs a different design",
+        "Grants the revive only when isEnded is true in rewardedAd.onClose",
+        "Retries with rewardedAd.load when show fails",
+        "Does not describe offerId as a product id",
+        "States buyQuantity must match fixed price tiers",
+        "States purchases must be confirmed by the server rather than the client callback",
+        "Decides iOS payment at runtime rather than assuming it is impossible",
+        "If it calls wx.checkIsSupportMidasPayment, it reads res.data.allow_pay",
+        "Mentions the eligibility requirements for virtual payment"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "package-size-and-worker",
+      "prompt": "Our WeChat mini game can't upload: the whole project is 24MB, with 6MB of levels in stage2/ and stage3/, plus lots of .webp textures that look fine in DevTools. Also pathfinding is causing frame drops so I want to move it to a worker thread that also reads saved settings with wx.getStorageSync. Tell me what to change. Write outputs/game.json, outputs/load-stage.js (loads a stage with a progress bar) and outputs/path-worker.js plus whatever main-thread code is needed, and put your explanation in outputs/notes.md.",
+      "expected_output": "Correct limits, subpackage loading, whitelist warning about webp, and a Worker that gets settings passed in rather than calling wx.",
+      "files": [],
+      "expectations": [
+        "States the total package limit is 30MB, not 20MB",
+        "States the main package limit is 4MB",
+        "Does not claim a 2MB per-subpackage limit",
+        "game.json declares subpackages for the stages",
+        "game.json declares workers",
+        "Calls wx.loadSubpackage and uses onProgressUpdate",
+        "Warns that webp is not on the upload whitelist",
+        "States wx APIs are not available in a Worker and passes settings by message",
+        "Mentions that only one Worker can run at a time"
+      ]
+    }
+  ]
+}

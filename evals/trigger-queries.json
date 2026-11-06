@@ -1,0 +1,52 @@
+[
+  {
+    "query": "帮我用原生 canvas 从零做一个微信小游戏，玩法是接住下落的水果，要能在开发者工具里直接跑起来",
+    "should_trigger": true
+  },
+  {
+    "query": "my wechat mini game looks blurry on iphone and the score text is hidden under the little capsule thing in the top right. canvas is set up in game.js, can you fix it?",
+    "should_trigger": true
+  },
+  {
+    "query": "这个项目 game.json 里配了 subpackages，但是上传的时候提示主包超了，帮我看看怎么拆分包",
+    "should_trigger": true
+  },
+  {
+    "query": "I want a friends leaderboard in our 小游戏, someone told me I have to use an open data context, how do I wire that up with my existing render loop?",
+    "should_trigger": true
+  },
+  {
+    "query": "玩家接完电话回到游戏背景音乐就没了，我用的是 wx.createInnerAudioContext，怎么修",
+    "should_trigger": true
+  },
+  {
+    "query": "we have an H5 canvas game (uses document.createElement, new Image, localStorage) and the boss wants it running inside WeChat as a mini game. what needs to change?",
+    "should_trigger": true
+  },
+  {
+    "query": "激励视频看完才给复活，但是有玩家说没看完也复活了，帮我检查下 wx.createRewardedVideoAd 的 onClose 逻辑",
+    "should_trigger": true
+  },
+  { "query": "帮我写个微信小程序的订单列表页，用 WXML 和 WXSS，下拉刷新，点进去看详情", "should_trigger": false },
+  {
+    "query": "my uni-app mini program login page needs wx.login and then call our backend, how should I structure the pages?",
+    "should_trigger": false
+  },
+  {
+    "query": "I'm building a Phaser game for the browser, deploying to Cloudflare, and the canvas looks blurry on retina screens. How do I fix the pixel ratio?",
+    "should_trigger": false
+  },
+  {
+    "query": "微信公众号网页里怎么调用 JS-SDK 分享到朋友圈？我们是 H5 活动页，用的 wx.config 和 wx.updateTimelineShareData",
+    "should_trigger": false
+  },
+  {
+    "query": "write me a Unity C# script for a top-down character controller with touch joystick for an Android build on Google Play",
+    "should_trigger": false
+  },
+  { "query": "帮我用 Python 写个脚本，调用微信支付 v3 接口给商户对账，下载每天的交易账单", "should_trigger": false },
+  {
+    "query": "our iOS SwiftUI game needs an in-app purchase store and a leaderboard with Game Center. what's the cleanest way to set this up?",
+    "should_trigger": false
+  }
+]
