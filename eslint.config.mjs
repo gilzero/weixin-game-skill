@@ -8,6 +8,7 @@ const wechatGlobals = {
   wx: 'readonly',
   GameGlobal: 'readonly',
   requestAnimationFrame: 'readonly',
+  cancelAnimationFrame: 'readonly',
   console: 'readonly',
   setTimeout: 'readonly',
   clearTimeout: 'readonly',
@@ -16,7 +17,7 @@ const wechatGlobals = {
 };
 
 export default defineConfig([
-  { ignores: ['node_modules/'] },
+  { ignores: ['node_modules/', 'eval-results/'] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {

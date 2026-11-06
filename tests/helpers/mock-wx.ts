@@ -166,6 +166,7 @@ export interface MockWx {
   shareListener: (() => unknown) | null;
   gcCount: number;
   vibrations: unknown[];
+  listenerCount(): number;
   fire(event: string, payload?: unknown): void;
   touch(event: 'start' | 'move' | 'end' | 'cancel', changed: TouchPoint[], stillDown?: TouchPoint[]): void;
   [api: string]: unknown;
@@ -189,6 +190,14 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     listeners.set(event, [...(listeners.get(event) ?? []), listener]);
   };
 
+  const removeListener = (event: string) => (listener: (payload: unknown) => void) => {
+    listeners.set(
+      event,
+      (listeners.get(event) ?? []).filter(existing => existing !== listener),
+    );
+  };
+  let nowMs = Date.now();
+  Date.now = () => nowMs;
   const wx: MockWx = {
     canvases: [],
     audios: [],
@@ -198,6 +207,7 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     shareListener: null,
     gcCount: 0,
     vibrations: [],
+    listenerCount: () => [...listeners.values()].reduce((sum, list) => sum + list.length, 0),
     fire(event, payload) {
       (listeners.get(event) ?? []).forEach(listener => listener(payload));
     },
@@ -218,17 +228,26 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     getWindowInfo: () => ({ ...device }),
     getMenuButtonBoundingClientRect: () => device.menuButton,
     onTouchStart: addListener('touchStart'),
+    offTouchStart: removeListener('touchStart'),
     onTouchMove: addListener('touchMove'),
+    offTouchMove: removeListener('touchMove'),
     onTouchEnd: addListener('touchEnd'),
+    offTouchEnd: removeListener('touchEnd'),
     onTouchCancel: addListener('touchCancel'),
+    offTouchCancel: removeListener('touchCancel'),
     onHide: addListener('hide'),
+    offHide: removeListener('hide'),
     onShow: addListener('show'),
+    offShow: removeListener('show'),
     onAudioInterruptionBegin: addListener('interruptionBegin'),
+    offAudioInterruptionBegin: removeListener('interruptionBegin'),
     onAudioInterruptionEnd: addListener('interruptionEnd'),
+    offAudioInterruptionEnd: removeListener('interruptionEnd'),
     onError: addListener('error'),
     onUnhandledRejection: addListener('rejection'),
     onMemoryWarning: addListener('memoryWarning'),
     onWindowResize: addListener('resize'),
+    offWindowResize: removeListener('resize'),
     triggerGC() {
       wx.gcCount += 1;
     },
@@ -281,31 +300,40 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
         destination: {},
         createOscillator: () => node,
         createGain: () => node,
-        resume: () => wx.webAudioCalls.push('resume'),
-        suspend: () => wx.webAudioCalls.push('suspend'),
+        resume: async () => {
+          wx.webAudioCalls.push('resume');
+        },
+        suspend: async () => {
+          wx.webAudioCalls.push('suspend');
+        },
+        close: async () => {
+          wx.webAudioCalls.push('close');
+        },
       };
     },
   };
 
-  let pendingFrames: (() => void)[] = [];
+  const pendingFrames = new Map<number, () => void>();
+  let nextFrameId = 1;
   const frames: RunningFrames = {
-    pendingCount: () => pendingFrames.length,
+    pendingCount: () => pendingFrames.size,
     advance(seconds) {
-      Date.now = (
-        original => () =>
-          original + seconds * 1000
-      )(Date.now());
-      const dueFrames = pendingFrames;
-      pendingFrames = [];
+      nowMs += seconds * 1000;
+      const dueFrames = [...pendingFrames.values()];
+      pendingFrames.clear();
       dueFrames.forEach(frame => frame());
     },
   };
 
   Object.assign(globalThis, {
     wx,
+    cancelAnimationFrame(id: number) {
+      pendingFrames.delete(id);
+    },
     requestAnimationFrame(callback: () => void) {
-      pendingFrames.push(callback);
-      return pendingFrames.length;
+      const id = nextFrameId++;
+      pendingFrames.set(id, callback);
+      return id;
     },
   });
   if (device.menuButton === null) wx.getMenuButtonBoundingClientRect = undefined;

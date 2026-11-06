@@ -3,7 +3,7 @@
 # @desc: find and read current WeChat docs
 #
 # Usage:
-#   wx-doc.sh find <text>    list doc pages whose path contains the text
+#   wx-doc.sh find <text>    match page paths and sidebar titles
 #   wx-doc.sh read <page>    print a page as Markdown (accepts a path from find, or a full URL)
 
 set -eu
@@ -11,7 +11,7 @@ set -eu
 BASE_URL=https://developers.weixin.qq.com/minigame/dev
 # Any API page carries the full site index in its sidebar.
 INDEX_PAGE=api/render/canvas/wx.createCanvas.html
-INDEX_CACHE="${TMPDIR:-/tmp}/wx-doc-index-$(date +%Y%m%d).txt"
+INDEX_CACHE="${TMPDIR:-/tmp}/wx-doc-index-v2-$(date +%Y%m%d).txt"
 
 fail() {
   echo "wx-doc: $1" >&2
@@ -25,24 +25,52 @@ fetch() {
 
 build_index() {
   [ -s "$INDEX_CACHE" ] && return 0
-  fetch "$BASE_URL/$INDEX_PAGE" |
-    grep -oE 'href="/minigame/dev/[^"#]+\.html' |
-    sed -e 's|^href="/minigame/dev/||' -e 's|\.html$||' |
-    sort -u >"$INDEX_CACHE"
-  [ -s "$INDEX_CACHE" ] || fail "could not read the site index from $BASE_URL/$INDEX_PAGE"
+  index_html=$(mktemp)
+  index_rows=$(mktemp)
+  trap 'rm -f "$index_html" "$index_rows"' EXIT
+  fetch --fail "$BASE_URL/$INDEX_PAGE" >"$index_html" || { echo 'wx-doc: index evidence unavailable' >&2; exit 2; }
+  # Split anchors without requiring a JS runtime in the installed skill.
+  tr '\n' ' ' <"$index_html" | sed 's|</a>|</a>\
+|g' | awk '
+    /href="\/minigame\/dev\/[^"#]+\.html"/ {
+      sub(/^.*href="\/minigame\/dev\//, "")
+      path = $0; sub(/\.html".*/, "", path)
+      sub(/^[^>]*>/, ""); sub(/<\/a>.*/, "")
+      gsub(/<[^>]*>/, ""); gsub(/&amp;/, "\\&")
+      print path "\t" $0
+    }
+  ' | sort -u >"$index_rows"
+  [ -s "$index_rows" ] || { echo "wx-doc: could not verify the site index from $BASE_URL/$INDEX_PAGE" >&2; exit 2; }
+  mv "$index_rows" "$INDEX_CACHE"
 }
 
 find_pages() {
   build_index
-  grep -iF -- "$1" "$INDEX_CACHE" || fail "no doc page path contains '$1'"
+  # The API sidebar uses only the English method name for the capsule.
+  query=$1
+  case "$query" in 胶囊|胶囊按钮) query=getMenuButtonBoundingClientRect ;; esac
+  grep -iF -- "$query" "$INDEX_CACHE" || fail "no doc page path or title contains '$1'"
 }
 
 read_page() {
-  page=$(printf '%s' "$1" | sed -e "s|^$BASE_URL/||" -e 's|^/minigame/dev/||' -e 's|[?#].*$||' -e 's|\.html$||' -e 's|\.md$||')
+  case "$1" in
+    https://developers.weixin.qq.com/minigame/*|https://developers.weixin.qq.com/miniprogram/*) url=$1 ;;
+    *://*) fail "only official WeChat documentation URLs are supported" ;;
+    *) page=$(printf '%s' "$1" | sed 's|^/minigame/dev/||'); url="$BASE_URL/$page" ;;
+  esac
+  url=$(printf '%s' "$url" | sed -e 's|[?#].*$||' -e 's|\.html$||' -e 's|\.md$||').md
   body_file=$(mktemp)
   trap 'rm -f "$body_file"' EXIT
-  status=$(fetch -o "$body_file" -w '%{http_code}' "$BASE_URL/$page.md")
-  [ "$status" = 200 ] || fail "HTTP $status for $BASE_URL/$page.md (try: wx-doc.sh find <part of the name>)"
+  status=$(fetch -o "$body_file" -w '%{http_code}' "$url") || { echo "wx-doc: evidence unavailable for $url" >&2; exit 2; }
+  case "$status" in
+    200) ;;
+    404|410) fail "HTTP $status for $url (try: wx-doc.sh find <part of the name>)" ;;
+    *) echo "wx-doc: evidence unavailable: HTTP $status for $url" >&2; exit 2 ;;
+  esac
+  if ! grep -Eq '^#{1,6} +[^ ]' "$body_file" || grep -Eiq '<!doctype html|<html[ >]|site unavailable|service unavailable|access denied|captcha' "$body_file"; then
+    echo "wx-doc: evidence unavailable: expected Markdown documentation at $url" >&2
+    exit 2
+  fi
   cat "$body_file"
 }
 

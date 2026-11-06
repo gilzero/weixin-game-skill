@@ -19,7 +19,7 @@ installAppServices({
   buildShareMessage: () => ({ title: `我在点得快拿了 ${game.bestScore} 分，来挑战`, query: 'from=share' }),
 });
 
-if (wx.onWindowResize) wx.onWindowResize(() => game.setBounds(screen.content));
+screen.onResize(layout => game.setBounds(layout.content));
 
 input.on('tap', ({ x, y }) => {
   if (game.phase !== 'playing') {
@@ -32,9 +32,9 @@ input.on('tap', ({ x, y }) => {
   }
 });
 
-startLoop(deltaSeconds => {
+startLoop((deltaSeconds, elapsedSeconds) => {
   const previousPhase = game.phase;
-  game.update(deltaSeconds);
+  game.update(deltaSeconds, elapsedSeconds);
   if (previousPhase === 'playing' && game.phase === 'over') storage.save('bestScore', game.bestScore);
   drawGame(screen.ctx, screen, game);
 });

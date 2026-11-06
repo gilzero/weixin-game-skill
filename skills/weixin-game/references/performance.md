@@ -5,7 +5,7 @@ Last verified against the official docs: 2026-11-06.
 ## Memory
 
 Memory is the [biggest stability risk](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-memory-overview.md).
-On iOS the game shares a process with WeChat, and low-end iPhones are still around 10 to 15 percent of devices.
+Process ownership and limits depend on the runtime mode; profile the actual engine and device combination.
 
 - iOS [destroys the game after two memory warnings within 5 seconds](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-memory-management.md).
   So on the first [`wx.onMemoryWarning`](https://developers.weixin.qq.com/minigame/dev/api/device/memory/wx.onMemoryWarning.md),
@@ -15,7 +15,8 @@ On iOS the game shares a process with WeChat, and low-end iPhones are still arou
   until JavaScript drops its reference and collection runs. Clear references when leaving a scene.
 - `wx.triggerGC()` only speeds up collection, with no guarantee of timing. Call it at round starts and ends and on scene
   changes.
-- Compressed textures reduce memory: `pvr` on iOS and `etc1` on Android, from base library 2.5.0.
+- Use engine-specific texture selection with device-supported formats and PNG/JPG fallbacks; see [engines](engines.md).
+  Budget decoded/GPU memory independently from download bytes. Do not choose a format solely from the OS name.
 - Destroy audio instances you no longer need, and avoid many large images in memory at once.
 
 ```js
@@ -42,7 +43,20 @@ Track real numbers with the 小游戏数据助手 mini program (数据, 性能�
 - `iOSHighPerformance` in `game.json` needs approval in the MP console first, and changes how audio behaves. Check the
   [config reference](https://developers.weixin.qq.com/minigame/dev/reference/configuration/app.md) before enabling it.
 
+## Runtime modes
+
+[High Performance+](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance-plus.md)
+requires High Performance mode first, then `iOSHighPerformance+` in `game.json`. The stated baseline is iOS 14 and
+WeChat 8.0.45, but the FAQ narrows iOS 14 to WeChat 8.0.49; earlier clients fall back and may lack WebGL2.
+Check the MP rollout settings and runtime mode on the target phone. Performance gains are workload dependent.
+
+[iOS Metal](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-ios-metal.md) is an engine/WASM rendering
+path requiring High Performance+, base library 3.10.0 and WeChat 8.0.63. Follow the exporter-specific integration;
+other modes fall back. Do not enable it as a generic Canvas 2D optimization.
+
 ## Workers
+
+The example and restrictions below apply to the **original Worker**, not Worker V2 or engine SDK threading.
 
 Workers help with heavy calculations such as pathfinding or physics. Nothing else about them is free, because messages are
 copied. From the [Worker guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/workers.md):
@@ -59,7 +73,8 @@ Main game:
 
 ```js
 const worker = wx.createWorker('workers/physics/index.js');
-worker.onMessage(result => applyPhysics(result.bodies));
+worker.onMessage(result => applyPhysics(result.message.bodies));
+const bodies = getPhysicsBodies();
 worker.postMessage({ bodies });
 ```
 
@@ -67,11 +82,13 @@ worker.postMessage({ bodies });
 
 ```js
 worker.onMessage(message => {
-  worker.postMessage({ bodies: stepPhysics(message.bodies) });
+  worker.postMessage({ bodies: stepPhysics(message.message.bodies) });
 });
 ```
 
 - Without `workers` in `game.json`, `wx.createWorker` has nothing to load.
+- The [message callback](https://developers.weixin.qq.com/minigame/dev/api/worker/Worker.onMessage.md) documents the
+  payload under `result.message`; match that envelope in both directions.
 - Only one Worker can run at a time. Call `worker.terminate()` before creating another.
 - `wx` APIs are not available inside a Worker, and neither is rendering. It can only `require` files inside its directory,
   which may contain only JS.
@@ -82,10 +99,20 @@ worker.onMessage(message => {
 - Worker code counts toward the 4MB main package. From 2.27.3, `{ "workers": { "path": "workers", "isSubpackage": true } }`
   moves it out, and then you must call `wx.preDownloadSubpackage({ packageType: 'workers' })` before `wx.createWorker`.
 
+### Worker V2 and engine threading
+
+[Worker V2](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/new-worker.md) is a gated Android rollout:
+WeChat 8.0.74+, base library 3.17.0+, and enabled rollout access. iOS support is still in progress and DevTools does not
+support it. Check `wx.env.isSupportStandardWorker`; retain the original Worker or main-thread fallback.
+It supports multiple workers, transferred OffscreenCanvas, SharedArrayBuffer and selected audio/network methods through
+`worker`, not a general `wx` global. Its sample message shapes differ from the original API envelope; use the guide
+for the chosen runtime. A transferred canvas must no longer be drawn by the main thread. Engine SDK multithreading is
+another path: confirm engine/exporter versions and use [engine documentation](engines.md) before mixing facilities.
+
 ## Startup
 
-[The docs estimate](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start.md) that loading
-everyone within 4 seconds would keep about 30 percent of the players otherwise lost. So:
+Measure cold-start time, first playable frame, frame-time percentiles and memory growth on a named device matrix.
+Use the [startup guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start.md):
 
 - Draw something on the very first frame, and show progress during any wait.
 - Keep the main package small and load the rest from subpackages or a CDN.

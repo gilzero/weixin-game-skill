@@ -22,6 +22,8 @@ interface ScreenModule {
   createScreen(): Layout & {
     canvas: { width: number; height: number };
     ctx: { transform: number[] };
+    onResize(listener: (layout: Layout) => void): () => void;
+    destroy(): void;
   };
 }
 interface Point {
@@ -33,10 +35,11 @@ interface InputModule {
   createInput(): {
     on(type: string, listener: (point: Point) => void): () => void;
     activeTouchCount(): number;
+    destroy(): void;
   };
 }
 interface AudioModule {
-  createAudio(): {
+  createAudio(options?: { useWebAudioImplement?: boolean }): {
     playMusic(src: string): void;
     pauseMusic(): void;
     stopMusic(): void;
@@ -44,6 +47,7 @@ interface AudioModule {
     playSound(name: string): void;
     beep(): void;
     setMuted(muted: boolean): void;
+    destroy(): void;
   };
 }
 interface StorageModule {
@@ -53,7 +57,7 @@ interface StorageModule {
   };
 }
 interface LoopModule {
-  startLoop(onFrame: (deltaSeconds: number) => void): void;
+  startLoop(onFrame: (deltaSeconds: number) => void): () => void;
 }
 interface AppServicesModule {
   installAppServices(options: { buildShareMessage: () => unknown; onMemoryWarning?: () => void }): void;
@@ -71,8 +75,15 @@ describe('screen', () => {
     test(`${name}: the top bar and content never touch the menu button`, () => {
       installMockWx(device);
       const { menuButton, topBar, content } = loadStarter<ScreenModule>('js/platform/screen.js').computeLayout(device);
-      expect(topBar.right).toBeLessThan(menuButton.left);
-      expect(content.top).toBeGreaterThan(menuButton.bottom);
+      if (device.windowWidth > device.windowHeight) {
+        expect(topBar.top).toBeGreaterThan(menuButton.bottom);
+        expect(content.right).toBeLessThan(menuButton.left);
+        expect(content.right).toBeLessThan(topBar.left);
+        expect(content.top).toBe(0);
+      } else {
+        expect(topBar.right).toBeLessThan(menuButton.left);
+        expect(content.top).toBeGreaterThan(menuButton.bottom);
+      }
     });
 
     test(`${name}: content stays inside the window and has usable height`, () => {
@@ -91,16 +102,14 @@ describe('screen', () => {
     expect(safe).toEqual({ left: 0, top: 28, right: 360, bottom: 780 });
   });
 
-  test('landscape gets the same insets whichever way the client reports safeArea', () => {
+  test('landscape preserves reported insets and never moves a portrait bottom inset vertically', () => {
     const { computeLayout } = loadStarter<ScreenModule>('js/platform/screen.js');
     installMockWx(devices.landscapeRotatedArea);
     const rotated = computeLayout(devices.landscapeRotatedArea).safe;
     installMockWx(devices.landscapePortraitArea);
     const portrait = computeLayout(devices.landscapePortraitArea).safe;
-    expect(rotated.left).toBe(47);
-    expect(portrait.left).toBe(47);
-    expect(portrait.right).toBe(797);
-    expect(portrait.bottom).toBeLessThanOrEqual(390);
+    expect(rotated).toEqual({ left: 47, right: 797, top: 0, bottom: 369 });
+    expect(portrait).toEqual({ left: 47, right: 797, top: 0, bottom: 390 });
   });
 
   test('the canvas uses device pixels and the context draws in logical pixels', () => {
@@ -123,10 +132,22 @@ describe('screen', () => {
     const screen = loadStarter<ScreenModule>('js/platform/screen.js').createScreen();
     device.windowWidth = 500;
     screen.ctx.transform = [1, 0, 0, 1, 0, 0];
+    let observedWidth = 0;
+    const unsubscribe = screen.onResize(layout => {
+      observedWidth = layout.width;
+      expect(screen.ctx.transform).toEqual([3, 0, 0, 3, 0, 0]);
+    });
     wx.fire('resize', { size: { windowWidth: 500, windowHeight: 844 } });
     expect(screen.width).toBe(500);
     expect(screen.canvas.width).toBe(1500);
     expect(screen.ctx.transform).toEqual([3, 0, 0, 3, 0, 0]);
+    expect(observedWidth).toBe(500);
+    unsubscribe();
+    screen.destroy();
+    device.windowWidth = 600;
+    wx.fire('resize');
+    expect(screen.width).toBe(500);
+    expect(wx.listenerCount()).toBe(0);
   });
 });
 
@@ -273,14 +294,14 @@ describe('audio', () => {
     audio.loadSound('hit', 'hit.mp3', 2);
     audio.playSound('hit');
     audio.playSound('hit');
-    expect(wx.audios[0]?.calls).toEqual(['seek', 'play']);
-    expect(wx.audios[1]?.calls).toEqual(['seek', 'play']);
+    expect(wx.audios[0]?.calls).toEqual(['stop', 'play']);
+    expect(wx.audios[1]?.calls).toEqual(['stop', 'play']);
   });
 
-  test('effects use the WebAudio backend recommended for short sounds', () => {
+  test('effects default to the backend supported in iOS high performance mode', () => {
     const { wx, audio } = setUp();
     audio.loadSound('hit', 'hit.mp3', 1);
-    expect(wx.audios[0]?.options).toEqual({ useWebAudioImplement: true });
+    expect(wx.audios[0]?.options).toEqual({ useWebAudioImplement: false });
   });
 
   test('playing an effect that was never loaded fails loudly', () => {
@@ -295,6 +316,7 @@ describe('audio', () => {
     wx.fire('hide');
     expect(wx.webAudioCalls).toEqual([]);
     audio.setMuted(false);
+    wx.fire('show');
     audio.beep();
     wx.fire('hide');
     wx.fire('show');
@@ -385,4 +407,103 @@ describe('app services', () => {
     expect(cachesCleared).toBe(1);
     expect(wx.gcCount).toBe(1);
   });
+});
+
+describe('platform teardown and audio state', () => {
+  test('destroying input cancels pending long presses and detaches only its own listeners', async () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    const { createInput } = loadStarter<InputModule>('js/platform/input.js');
+    const first = createInput();
+    const second = createInput();
+    let longPresses = 0;
+    let taps = 0;
+    first.on('longPress', () => {
+      longPresses += 1;
+    });
+    second.on('tap', () => {
+      taps += 1;
+    });
+    wx.touch('start', [finger(1)]);
+    first.destroy();
+    first.destroy();
+    wx.touch('end', [finger(1)]);
+    await sleep(560);
+    expect(longPresses).toBe(0);
+    expect(taps).toBe(1);
+    expect(wx.listenerCount()).toBe(5);
+    second.destroy();
+    expect(wx.listenerCount()).toBe(0);
+  });
+
+  test('destroying a loop cancels the pending frame and cannot restart on show', () => {
+    const { wx, frames } = installMockWx(devices.notchedIphone);
+    let count = 0;
+    const destroy = loadStarter<LoopModule>('js/platform/loop.js').startLoop(() => {
+      count += 1;
+    });
+    destroy();
+    destroy();
+    wx.fire('show');
+    frames.advance(1);
+    expect(count).toBe(0);
+    expect(frames.pendingCount()).toBe(0);
+    expect(wx.listenerCount()).toBe(0);
+  });
+
+  test('ending an interruption while hidden waits for show for all output', () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    const audio = loadStarter<AudioModule>('js/platform/audio.js').createAudio();
+    audio.playMusic('bgm.mp3');
+    audio.loadSound('hit', 'hit.mp3', 1);
+    wx.fire('interruptionBegin');
+    wx.fire('hide');
+    wx.fire('interruptionEnd');
+    audio.setMuted(false);
+    audio.playMusic('bgm.mp3');
+    audio.playSound('hit');
+    audio.beep();
+    expect(wx.audios[0]?.calls.filter(call => call === 'play')).toHaveLength(1);
+    expect(wx.audios[1]?.calls).not.toContain('play');
+    expect(wx.webAudioCalls).toEqual([]);
+    wx.fire('show');
+    expect(wx.audios[0]?.calls.filter(call => call === 'play')).toHaveLength(2);
+    audio.destroy();
+  });
+
+  test('audio releases replaced pools, closes WebAudio once and detaches listeners', () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    const audio = loadStarter<AudioModule>('js/platform/audio.js').createAudio({ useWebAudioImplement: true });
+    audio.loadSound('hit', 'old.mp3', 1);
+    expect(wx.audios[0]?.options).toEqual({ useWebAudioImplement: true });
+    audio.loadSound('hit', 'new.mp3', 1);
+    expect(wx.audios[0]?.calls).toEqual(['destroy']);
+    expect(() => audio.loadSound('bad', 'bad.mp3', 0)).toThrow('positive integer');
+    audio.beep();
+    audio.destroy();
+    audio.destroy();
+    wx.fire('show');
+    wx.fire('interruptionEnd');
+    expect(wx.listenerCount()).toBe(0);
+    expect(wx.webAudioCalls).toEqual(['close']);
+    expect(wx.audios[1]?.calls).toEqual(['destroy']);
+    expect(() => audio.beep()).toThrow('destroyed');
+  });
+});
+
+test('error services send remote breadcrumbs without raw player data', () => {
+  const { wx } = installMockWx(devices.notchedIphone);
+  const reported: unknown[][] = [];
+  wx.getRealtimeLogManager = () => ({ error: (...args: unknown[]) => reported.push(args) });
+  const previous = console.error;
+  console.error = () => {};
+  try {
+    loadStarter<AppServicesModule>('js/platform/app-services.js').installAppServices({
+      buildShareMessage: () => ({ title: 'test' }),
+    });
+    wx.fire('error', { message: 'private token and player content' });
+    wx.fire('rejection', { reason: { secret: 'sensitive' } });
+    expect(reported).toEqual([['uncaught error'], ['unhandled rejection']]);
+  } finally {
+    console.error = previous;
+  }
 });

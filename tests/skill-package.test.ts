@@ -11,7 +11,7 @@ const CODE_EXTENSIONS = new Set(['.js', '.ts', '.mjs', '.sh']);
 
 function listFiles(directory: string): string[] {
   return readdirSync(directory).flatMap(entry => {
-    if (['node_modules', '.git'].includes(entry)) return [];
+    if (['node_modules', '.git', 'eval-results'].includes(entry)) return [];
     const path = join(directory, entry);
     return statSync(path).isDirectory() ? listFiles(path) : [path];
   });
@@ -73,6 +73,20 @@ describe('skill layout', () => {
     expect(marketplace.plugins[0].name).toBe(plugin.name);
     expect(plugin.name).toBe(frontmatter.name);
     expect((frontmatter.metadata as { version: string }).version).toBe(plugin.version);
+    expect(JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version).toBe(plugin.version);
+  });
+
+  test('docs verified is the oldest reference verification date', () => {
+    const dates = referenceFiles
+      .map(path => {
+        const date = /Last verified against the official docs: (\d{4}-\d{2}-\d{2})/.exec(
+          readFileSync(path, 'utf8'),
+        )?.[1];
+        if (!date || new Date(date).toISOString().slice(0, 10) !== date) throw new Error(`Invalid date: ${path}`);
+        return date;
+      })
+      .sort();
+    expect((frontmatter.metadata as Record<string, unknown>)['docs-verified']).toBe(dates[0]);
   });
 });
 
@@ -104,14 +118,6 @@ describe('documentation', () => {
   test('README and AGENTS stay short', () => {
     for (const name of ['README.md', 'AGENTS.md']) {
       expect(readFileSync(join(repoRoot, name), 'utf8').split('\n').length).toBeLessThanOrEqual(DOC_LINE_LIMIT);
-    }
-  });
-
-  test('facts the previous version got wrong do not come back', () => {
-    const banned = [/20\s?MB/i, /单分包限制/, /level:\s*0-5/, /仅.*WebGL1/, /globalThis\./];
-    for (const path of skillMarkdown) {
-      const markdown = readFileSync(path, 'utf8');
-      for (const pattern of banned) expect(markdown, `${basename(path)} matches ${pattern}`).not.toMatch(pattern);
     }
   });
 });

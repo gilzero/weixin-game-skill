@@ -27,7 +27,10 @@
     "query": "激励视频看完才给复活，但是有玩家说没看完也复活了，帮我检查下 wx.createRewardedVideoAd 的 onClose 逻辑",
     "should_trigger": true
   },
-  { "query": "帮我写个微信小程序的订单列表页，用 WXML 和 WXSS，下拉刷新，点进去看详情", "should_trigger": false },
+  {
+    "query": "帮我写个微信小程序的订单列表页，用 WXML 和 WXSS，下拉刷新，点进去看详情",
+    "should_trigger": false
+  },
   {
     "query": "my uni-app mini program login page needs wx.login and then call our backend, how should I structure the pages?",
     "should_trigger": false
@@ -44,9 +47,32 @@
     "query": "write me a Unity C# script for a top-down character controller with touch joystick for an Android build on Google Play",
     "should_trigger": false
   },
-  { "query": "帮我用 Python 写个脚本，调用微信支付 v3 接口给商户对账，下载每天的交易账单", "should_trigger": false },
+  {
+    "query": "帮我用 Python 写个脚本，调用微信支付 v3 接口给商户对账，下载每天的交易账单",
+    "should_trigger": false
+  },
   {
     "query": "our iOS SwiftUI game needs an in-app purchase store and a leaderboard with Game Center. what's the cleanest way to set this up?",
     "should_trigger": false
+  },
+  {
+    "query": "抖音小游戏 game.js 用 tt.createCanvas，怎么修复触摸输入？只发布到抖音。",
+    "should_trigger": false
+  },
+  {
+    "query": "Our Douyin mini game has game.json and tt APIs; add rewarded ads.",
+    "should_trigger": false
+  },
+  {
+    "query": "Cocos Creator 3.8 微信小游戏导出后分包配置每次都被覆盖，帮我修复源项目。",
+    "should_trigger": true
+  },
+  {
+    "query": "Port our Unity/Tuanjie game to WeChat using the conversion SDK.",
+    "should_trigger": true
+  },
+  {
+    "query": "LayaAir 微信小游戏在 iOS 高性能加模式黑屏，帮我定位。",
+    "should_trigger": true
   }
 ]

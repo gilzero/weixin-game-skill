@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "description": "A maintained native game that already owns its canvas and loop",
+  "files": {
+    "game.js": "// @file: game.js\n// @desc: owns native canvas and game loop\nconst canvas = wx.createCanvas();\nconst ctx = canvas.getContext('2d');\nconst { drawHud } = require('./js/hud');\nfunction frame() { drawWorld(ctx); drawHud(ctx, score); requestAnimationFrame(frame); }\nrequestAnimationFrame(frame);\n",
+    "js/hud.js": "// @file: hud.js\n// @desc: draws current score\nfunction drawHud(ctx, score) { ctx.fillText(String(score), 340, 20); }\nmodule.exports = { drawHud };\n"
+  }
+}

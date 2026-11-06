@@ -1,9 +1,12 @@
 // @file: storage.js
 // @desc: safe wrapper around wx storage
+/** @param {string} keyPrefix */
 function createStorage(keyPrefix) {
+  /** @param {string} key */
   const fullKey = key => `${keyPrefix}:${key}`;
 
   return {
+    /** @template Value @param {string} key @param {Value} fallback @returns {Value} */
     load(key, fallback) {
       try {
         const stored = wx.getStorageSync(fullKey(key));
@@ -16,6 +19,7 @@ function createStorage(keyPrefix) {
     },
 
     // Returns false when full, because a key holds 1MB and a game holds 10MB per user.
+    /** @param {string} key @param {unknown} value */
     save(key, value) {
       try {
         wx.setStorageSync(fullKey(key), value);

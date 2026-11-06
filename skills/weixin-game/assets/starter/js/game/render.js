@@ -10,6 +10,8 @@ const START_BUTTON_WIDTH = 200;
 const START_BUTTON_HEIGHT = 56;
 const START_BUTTON_BOTTOM_MARGIN = 48;
 
+/** @typedef {{left: number, top: number, width: number, height: number}} Rect */
+/** @param {ReturnType<typeof import("../platform/screen").computeLayout>} screen */
 function startButtonRect(screen) {
   const { left, right, bottom } = screen.content;
   const width = Math.min(START_BUTTON_WIDTH, right - left);
@@ -21,10 +23,12 @@ function startButtonRect(screen) {
   };
 }
 
+/** @param {Rect} rect @param {number} x @param {number} y */
 function isInsideRect(rect, x, y) {
   return x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height;
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {Rect} rect @param {number} radius */
 function fillRoundedRect(ctx, rect, radius) {
   ctx.beginPath();
   // Support varies by client, so the arc path is the fallback rather than an assumption either way.
@@ -43,6 +47,7 @@ function fillRoundedRect(ctx, rect, radius) {
   ctx.fill();
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {string} text @param {number} x @param {number} y @param {{size: number, color: string, align?: CanvasTextAlign}} options */
 function drawText(ctx, text, x, y, { size, color, align = 'left' }) {
   ctx.font = `${size}px sans-serif`;
   ctx.fillStyle = color;
@@ -51,8 +56,15 @@ function drawText(ctx, text, x, y, { size, color, align = 'left' }) {
   ctx.fillText(text, x, y);
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {ReturnType<typeof import("../platform/screen").computeLayout>} screen @param {ReturnType<typeof import("./tap-rush").createTapRush>} game */
 function drawTopBar(ctx, screen, game) {
   const { left, right, top, bottom } = screen.topBar;
+  if (screen.width > screen.height) {
+    drawText(ctx, '得分 ' + game.score, left, top + 16, { size: 16, color: TEXT_COLOR });
+    if (game.phase === 'playing')
+      drawText(ctx, Math.ceil(game.secondsLeft) + ' 秒', left, top + 48, { size: 16, color: MUTED_TEXT_COLOR });
+    return;
+  }
   const centerY = (top + bottom) / 2;
   drawText(ctx, `得分 ${game.score}`, left + TOP_BAR_PADDING, centerY, { size: 18, color: TEXT_COLOR });
   if (game.phase === 'playing') {
@@ -64,6 +76,7 @@ function drawTopBar(ctx, screen, game) {
   }
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {NonNullable<ReturnType<typeof import("./tap-rush").createTapRush>['target']>} target */
 function drawTarget(ctx, target) {
   ctx.fillStyle = ACCENT_COLOR;
   ctx.beginPath();
@@ -71,6 +84,7 @@ function drawTarget(ctx, target) {
   ctx.fill();
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {ReturnType<typeof import("../platform/screen").computeLayout>} screen @param {ReturnType<typeof import("./tap-rush").createTapRush>} game */
 function drawMenu(ctx, screen, game) {
   const { left, right, top, bottom } = screen.content;
   const centerX = (left + right) / 2;
@@ -94,11 +108,12 @@ function drawMenu(ctx, screen, game) {
   });
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {ReturnType<typeof import("../platform/screen").computeLayout>} screen @param {ReturnType<typeof import("./tap-rush").createTapRush>} game */
 function drawGame(ctx, screen, game) {
   ctx.fillStyle = BACKGROUND_COLOR;
   ctx.fillRect(0, 0, screen.width, screen.height);
   drawTopBar(ctx, screen, game);
-  if (game.phase === 'playing') drawTarget(ctx, game.target);
+  if (game.phase === 'playing' && game.target) drawTarget(ctx, game.target);
   else drawMenu(ctx, screen, game);
 }
 

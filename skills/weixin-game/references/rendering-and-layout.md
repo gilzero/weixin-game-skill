@@ -31,31 +31,57 @@ ctx.setTransform(info.pixelRatio, 0, 0, info.pixelRatio, 0, 0);
 ```
 
 Setting `canvas.width` resets context state, so reapply the transform after every resize. For a fixed design resolution,
-add one uniform scale and offset on top, and convert touches with the same numbers.
+add one uniform scale and offset on top, and convert touches with the same numbers. Recompute these values on resize:
+
+```js
+const info = wx.getWindowInfo();
+const canvas = wx.createCanvas();
+const ctx = canvas.getContext('2d');
+const designWidth = 390;
+const designHeight = 844;
+const dpr = info.pixelRatio;
+const scale = Math.min(info.windowWidth / designWidth, info.windowHeight / designHeight);
+const offsetX = (info.windowWidth - designWidth * scale) / 2;
+const offsetY = (info.windowHeight - designHeight * scale) / 2;
+canvas.width = Math.round(info.windowWidth * dpr);
+canvas.height = Math.round(info.windowHeight * dpr);
+ctx.setTransform(scale * dpr, 0, 0, scale * dpr, offsetX * dpr, offsetY * dpr);
+wx.onTouchEnd(event => {
+  for (const touch of event.changedTouches) {
+    const x = (touch.clientX - offsetX) / scale;
+    const y = (touch.clientY - offsetY) / scale;
+    if (x >= 0 && x <= designWidth && y >= 0 && y <= designHeight) handleDesignTouch(x, y);
+  }
+});
+```
+
+Touches are already logical pixels: do not multiply or divide them by DPR. Letterbox taps are ignored. Convert safe-area
+and capsule rectangles through the same inverse transform before placing design-space controls.
 
 ## Game loop
 
 ```js
-let lastFrameTime = Date.now();
-function runFrame() {
-  const now = Date.now();
-  const deltaSeconds = Math.min(0.1, (now - lastFrameTime) / 1000);
-  lastFrameTime = now;
-  update(deltaSeconds);
+const { startLoop } = require('./js/platform/loop');
+const stopLoop = startLoop((simulationSeconds, elapsedSeconds) => {
+  update(simulationSeconds, elapsedSeconds);
   draw();
-  requestAnimationFrame(runFrame);
-}
-requestAnimationFrame(runFrame);
+});
 ```
 
 - The [docs](https://developers.weixin.qq.com/minigame/dev/api/render/frame/requestAnimationFrame.md) promise no
   timestamp argument on the callback, so read the clock yourself.
-- Clamp the delta so a stall or a return from the background cannot jump the game forward.
+- The starter clamps simulation steps to 0.1 seconds but passes unclamped foreground elapsed time separately.
+  Use elapsed time for timed challenges: a 20-second round still ends after 20 foreground seconds at five FPS.
+  Background time is excluded. It rejects negative wall-clock deltas without counting a recovered interval twice.
+  Call `stopLoop()` when disposing the scene. The wall clock cannot distinguish a forward clock change from a stall;
+  for stricter timing, verify a monotonic clock and its units on the selected runtime before replacing it.
 - Lower the rate with
   [`wx.setPreferredFramesPerSecond`](https://developers.weixin.qq.com/minigame/dev/api/render/frame/wx.setPreferredFramesPerSecond.md)
   on slow devices or calm scenes.
 
 ## Menu button and safe area
+
+For a portrait layout:
 
 ```js
 const menuButton = wx.getMenuButtonBoundingClientRect();
@@ -71,8 +97,12 @@ const topBarRight = menuButton.left - 8;
 - Put HUD text on a row level with the button that ends before `menuButton.left`, or place everything below
   `menuButton.bottom`. `safeArea.top` alone leaves content under the button.
 - [`safeArea`](https://developers.weixin.qq.com/minigame/dev/api/base/system/wx.getWindowInfo.md) is defined in portrait
-  and is absent on some devices. In landscape, inspect its shape instead of assuming, as the starter's `readInsets` does,
-  and confirm on a notched phone.
+  and is absent on some devices. The starter preserves landscape-shaped reports. For portrait-shaped reports in a wide
+  window it reserves both possible notch edges conservatively; a portrait bottom inset becomes horizontal, never a
+  landscape bottom inset. This cannot infer the landscape home-indicator inset or notch side. Confirm on a notched phone.
+- In landscape the starter reserves a right rail for the capsule and HUD, leaving the playfield full height. In portrait
+  it places gameplay below the capsule. Subscribe with `screen.onResize(listener)` to receive the updated layout and
+  transform; call the returned unsubscribe function or `screen.destroy()` when replacing the screen.
 - Do not sniff device models to find notches. `safeArea` already answers that.
 
 ## Orientation and large screens

@@ -21,6 +21,10 @@ wx.login({
 `session_key` and AppSecret stay on the server. Avoid calling `wx.login` on every launch, because it is rate limited and
 can replace `session_key`.
 
+Reuse your application session until it expires; coalesce concurrent refresh attempts and refresh WeChat login only when
+needed. Keep application-token expiry separate from the WeChat session key. For teams without a backend, see
+[backend choices](tooling-and-backend.md#backend-work).
+
 ## Privacy
 
 From the [privacy guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/privacy.md):
@@ -61,6 +65,17 @@ wx.requirePrivacyAuthorize({
 - Other permissions, such as `scope.userFuzzyLocation`, follow the
   [authorization guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/authorize.md).
 
+Use one active authorization UI for concurrent requests, resolve every waiting request after the player's decision,
+and recheck requirements when the policy changes. Refusal must not leave pending promises or block unrelated play.
+
+## User content
+
+The [security guide](https://developers.weixin.qq.com/minigame/dev/guide/security/security.md) requires checking user
+text, images and audio/video before public display. Custom names, chat and uploaded avatars need server-side content
+checks and a pending/rejected state. Read the linked backend API docs for the selected media; keep credentials on the
+server. Privacy consent does not substitute for content moderation. Provide review/report handling where the feature
+needs it; a fixed set of built-in names and avatars avoids accepting arbitrary content in a simple prototype.
+
 ## Updates
 
 [Published versions reach players within about 24 hours](https://developers.weixin.qq.com/minigame/dev/guide/runtime/update-mechanism.md),
@@ -87,6 +102,12 @@ from `onUpdateReady`, as the starter does. For a required update, raise the mini
 - [ ] Audio obeys the mute switch as intended.
 
 **Platform and compliance**
+
+- [ ] [Version review and mini program filing](https://developers.weixin.qq.com/minigame/introduction/guide/index.md)
+      (小程序备案) are complete. Company entities must complete WeChat certification before filing.
+- [ ] Plan for the guide's estimated 13–37 working days for IAA or 9–22 for IAP; these are estimates, not release SLAs.
+- [ ] For iOS payment, the MP agreement, signed orders, reconciliation and refund handling are verified.
+- [ ] Any public user content passes the applicable security checks.
 
 - [ ] The privacy policy is filled in and matches what the game collects.
 - [ ] `wx.onError` and `wx.onUnhandledRejection` are registered.

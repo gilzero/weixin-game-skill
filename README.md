@@ -7,38 +7,52 @@ platform rules, a starter that runs with no build step, and a way to read the cu
 
 ## Install
 
-**Claude Code (recommended).** One command, with updates through the plugin system:
+Install the skill into the game project you want the agent to work on. The CLI examples require Git and Bun.
+
+**Ask your AI coding agent to install it:**
+
+> Install the weixin-game skill from https://github.com/gilzero/weixin-game-skill for this project and this agent.
+> Use the matching installation route below, preserve the complete skill folder, and verify that the agent discovers it.
+
+**Claude Code:** use its [plugin installer](https://code.claude.com/docs/en/discover-plugins):
 
 ```bash
 claude plugin marketplace add gilzero/weixin-game-skill
-claude plugin install weixin-game@weixin-game-skill
+claude plugin install weixin-game@weixin-game-skill --scope project
 ```
 
-**Codex, Cursor and Antigravity**, using the open [skills CLI](https://github.com/vercel-labs/skills). Run it in your project
-to install into `.agents/skills/`, which all three read:
+Use `--scope user` instead for all projects. For a skill-only installation without the plugin, use the Claude Code row below.
 
-```bash
-bunx skills add gilzero/weixin-game-skill -a codex -y
-bunx skills add gilzero/weixin-game-skill -a cursor -y
-bunx skills add gilzero/weixin-game-skill -a antigravity -y
-```
+**Codex, Antigravity, Cursor, or Claude Code without plugins:** run the matching
+[skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) command from your game project's root:
 
-**Manual**, for a single project or to pin a version:
+| AI coding agent | Project installation command                                                      |
+| --------------- | --------------------------------------------------------------------------------- |
+| Codex           | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a codex -y`       |
+| Claude Code     | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a claude-code -y` |
+| Antigravity     | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a antigravity -y` |
+| Cursor          | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a cursor -y`      |
 
-```bash
-git clone https://github.com/gilzero/weixin-game-skill.git
-mkdir -p your-game/.claude/skills
-cp -R weixin-game-skill/skills/weixin-game your-game/.claude/skills/
-```
+Choose one route per agent to avoid duplicate discovery. Add `-g` for a user-wide skills CLI installation; let the CLI
+choose the agent's global path. Project installs use `.agents/skills/` for Codex, Antigravity and Cursor, and
+`.claude/skills/` for Claude Code, as listed in the [agent directory table](https://github.com/vercel-labs/skills/blob/main/docs/agents.md).
 
-Use `~/.claude/skills/` instead to enable it in every project. Start a new session afterwards.
+**Manual/offline:** obtain this repository, then copy the whole `skills/weixin-game/` directory into
+`your-game/.agents/skills/` for Codex, Cursor or Antigravity, or `your-game/.claude/skills/` for Claude Code.
+Keep `SKILL.md`, `references/`, `scripts/` and `assets/` together; copying only `SKILL.md` breaks the skill.
 
-**Getting updates.** Plugin updates are off by default for third-party marketplaces. Turn them on in `/plugin` under
-Marketplaces, or run `claude plugin update weixin-game@weixin-game-skill`. With the skills CLI, run `bunx skills update`.
+**Verify:** use `bunx skills list` (add `-g` for global installs), or Claude Code's `/plugin` for its plugin route.
+Then open the game project in your agent and ask it to use `weixin-game` and identify the loaded `SKILL.md` path.
+[Codex CLI/IDE](https://developers.openai.com/codex/skills) also supports `/skills` and explicit `$weixin-game` invocation.
+If discovery is stale, start a new session or restart the agent. Discovery alone does not verify game behavior.
+
+**Update:** run `bunx skills update` for CLI installs. For the Claude plugin, run
+`claude plugin update weixin-game@weixin-game-skill`, or enable auto-update for its marketplace in `/plugin`.
+Manual copies must be replaced with the complete updated skill folder.
 
 ## Use
 
-There is nothing to invoke. Describe what you want, and the skill loads when the task involves a mini game:
+Describe a WeChat mini game task; the agent can select the skill automatically or you can request it explicitly:
 
 ```text
 帮我做一个微信小游戏：点击下落的方块得分
@@ -47,10 +61,11 @@ Add a friends leaderboard to my WeChat mini game
 Our game is 6MB and won't upload. How do we split it?
 ```
 
-For a new game it copies a starter project you can open straight away in
+For a new native JavaScript game it copies a starter project you can open straight away in
 [WeChat DevTools](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html). Import the folder and choose
 测试号 if you do not have an AppID yet. The placeholder `touristappid` only works through that import window, not the
-DevTools CLI.
+DevTools CLI. Engine projects are routed to their source/build workflow; generated exports are not durable edit targets.
+The optional official `wechatide` skill can assist verification, but its game support must be tested first.
 
 ## What's included
 
@@ -59,29 +74,35 @@ skills/weixin-game/
 ├── SKILL.md              Core rules and where to go next
 ├── references/           Loaded only when the topic comes up
 │   ├── platform-facts.md          Limits, browser-to-WeChat table, commonly wrong APIs
-│   ├── rendering-and-layout.md    Canvas, sharpness, game loop, menu button, safe area, porting
-│   ├── input-audio-lifecycle.md   Touch, audio, background and foreground, errors
-│   ├── assets-and-network.md      Subpackages, downloads, files, storage, network
-│   ├── social-and-open-data.md    Leaderboards, sharing, user info
+│   ├── rendering-and-layout.md    Canvas, loop, layout and porting
+│   ├── input-audio-lifecycle.md   Touch, audio, lifecycle and diagnostics
+│   ├── assets-and-network.md      Packages, files, storage and network
+│   ├── social-and-open-data.md    Leaderboards, sharing and social features
 │   ├── monetization.md            Ads and virtual payment
 │   ├── performance.md             Memory, Workers, startup
-│   └── privacy-and-release.md     Login, privacy, updates, release checklist
+│   ├── privacy-and-release.md     Login, privacy, updates, release checklist
+│   ├── engines.md                 Source/build routing, runtime profiles, desktop and textures
+│   ├── tooling-and-backend.md     Official agent tooling and optional CloudBase route
+│   └── capability-map.md          Social, multiplayer, operations and diagnostics lookup
 ├── assets/starter/       Runnable project with a small sample game
 └── scripts/wx-doc.sh     Find and read live docs
 ```
 
 The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch, audio interruptions,
-storage, sharing and update prompts. Replace `js/game/` with your game.
+storage, sharing, error breadcrumbs and update prompts. Timed rounds use foreground elapsed time separately from simulation steps. Replace `js/game/` with your game.
+Platform services expose cleanup hooks, resize notifications run after layout updates, and landscape uses a side HUD.
 
 ## Staying current
-
-WeChat changes its limits and APIs regularly, so the skill does not rely on a frozen copy:
 
 - **The live docs win.** Any official page is available as clean Markdown by changing `.html` to `.md`. The skill tells
   the agent to check them, and `scripts/wx-doc.sh` makes that one command.
 - **Every reference is dated.** Each file states when it was last checked against the docs.
-- **Drift is detected.** `bun run check:docs` compares key facts, every doc link and every `wx.*` API the skill mentions
-  with the live site. A weekly GitHub Action runs it and opens an issue if something changed.
+- **Selected assertions detect drift.** `bun run check:docs` checks registered facts, official Markdown links, API names
+  and guide-sidebar additions/removals. Payment checks include the newer community article and its API-table conflict.
+  Exit 1 means changed assertions; exit 2 means evidence unavailable, including HTTP-200 error pages. The weekly action
+  distinguishes these outcomes. Review dates record a baseline, not proof that every statement is checked automatically.
+- **Examples are checked.** Typed application contracts replace blanket missing-name suppression. Behavioral tests
+  exercise cache failures, leaderboard ordering, payment fallback and slow-frame countdowns.
 
 ## What's been tested
 
@@ -97,9 +118,7 @@ WeChat changes its limits and APIs regularly, so the skill does not rely on a fr
 | Real phones                                                      | **Not yet run**               |
 
 Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not
-measured on how well they follow it. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. The docs also
-leave some things open, such as `ctx.roundRect` support and `#rrggbbaa` colours. The skill says so and uses feature
-detection instead of guessing.
+measured on how well they follow it. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
 
 ## Contributing
 
@@ -107,7 +126,18 @@ detection instead of guessing.
 bun install
 bun qc              # format, lint, type check, test
 bun run check:docs  # compare with the live docs (needs network)
+bun run eval        # dry run: shows case and API call counts
 ```
+
+To run API evaluations, set `OPENAI_API_KEY`, `EVAL_MODEL` and optionally `EVAL_JUDGE_MODEL`, then run
+`bun run eval --run --suite tasks --limit 1`. Use `--suite triggers` for description relevance, or omit `--suite` for both.
+`--mode skill|baseline|both` controls task comparisons. Each task variant makes two API calls; each trigger makes one.
+The runner uses [Responses structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), saves
+artifacts and evidence under gitignored `eval-results/`, and exits 1 for failed expectations/syntax or 2
+for incomplete execution. It supplies skill resources as context and never executes generated code, so it measures
+answer quality, not actual file copying, progressive loading, host activation or phone behavior. Review model grades.
+Fixtures cover existing native and engine projects. Reports include skill/suite/fixture hashes, model versions and run
+count; generated JS/TS/JSON receives syntax checks without execution. Offline tests pass; no live scores for these new cases.
 
 See [AGENTS.md](AGENTS.md) for how the repo is organised and how to update a fact.
 

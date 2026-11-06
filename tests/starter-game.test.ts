@@ -27,8 +27,10 @@ interface RulesModule {
 }
 
 const realDateNow = Date.now;
+const realRandom = Math.random;
 afterEach(() => {
   Date.now = realDateNow;
+  Math.random = realRandom;
 });
 
 describe('sample game rules', () => {
@@ -151,7 +153,8 @@ describe('whole game in the mock runtime', () => {
   });
 
   for (const [name, device] of Object.entries(devices) as [string, Device][]) {
-    test(`${name}: nothing drawn overlaps the menu button or the unsafe edges`, () => {
+    test(`${name}: text estimates and target viewport bounds clear the menu`, () => {
+      Math.random = () => 0;
       const { wx, frames, ctx } = bootGame(device);
       const menu = device.menuButton ?? { left: device.windowWidth - 106, bottom: device.statusBarHeight + 38 };
 
@@ -173,7 +176,37 @@ describe('whole game in the mock runtime', () => {
       tapAt(wx, startButton.x, startButton.y);
       renderFrame(frames, ctx);
       assertClear();
-      for (const circle of ctx.circles) expect(circle.y - circle.radius).toBeGreaterThan(menu.bottom);
+      for (const circle of ctx.circles) {
+        expect(circle.x + circle.radius <= menu.left || circle.y - circle.radius >= menu.bottom).toBe(true);
+        expect(circle.x - circle.radius).toBeGreaterThanOrEqual(0);
+        expect(circle.y - circle.radius).toBeGreaterThanOrEqual(0);
+        expect(circle.x + circle.radius).toBeLessThanOrEqual(device.windowWidth);
+        expect(circle.y + circle.radius).toBeLessThanOrEqual(device.windowHeight);
+      }
     });
   }
+});
+
+test('the real game loop finishes a timed round at five frames per second and after a stall', () => {
+  for (const steps of [Array<number>(100).fill(0.2), [20]]) {
+    const { wx, frames, ctx } = bootGame(devices.notchedIphone);
+    renderFrame(frames, ctx);
+    const start = labelPosition(ctx, '开始');
+    tapAt(wx, start.x, start.y);
+    for (const step of steps) renderFrame(frames, ctx, step);
+    labelPosition(ctx, '再来一局');
+  }
+});
+
+test('backward clock jumps do not add time or count the same interval twice', () => {
+  const { wx, frames, ctx } = bootGame(devices.notchedIphone);
+  renderFrame(frames, ctx);
+  const start = labelPosition(ctx, '开始');
+  tapAt(wx, start.x, start.y);
+  renderFrame(frames, ctx, 5);
+  labelPosition(ctx, '15 秒');
+  renderFrame(frames, ctx, -3);
+  labelPosition(ctx, '15 秒');
+  renderFrame(frames, ctx, 3);
+  labelPosition(ctx, '15 秒');
 });

@@ -19,14 +19,26 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Compare the skill with the live docs
-        run: bun run check:docs 2>&1 | tee drift.log
+        id: docs
+        run: |
+          set +e
+          bun run check:docs 2>&1 | tee drift.log
+          result=${PIPESTATUS[0]}
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          exit "$result"
         shell: bash -o pipefail {0}
       - name: Open an issue if nothing is tracking this yet
-        if: failure()
+        if: failure() && steps.docs.outputs.result != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          CHECK_RESULT: ${{ steps.docs.outputs.result }}
         run: |
-          existing=$(gh issue list --state open --search 'WeChat docs drift in:title' --json number --jq 'length')
+          title='WeChat docs drift detected'
+          if [ "$CHECK_RESULT" = '2' ]; then title='WeChat docs evidence unavailable'; fi
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq 'length')
           if [ "$existing" = "0" ]; then
-            gh issue create --title 'WeChat docs drift detected' --body "$(printf 'The weekly check failed. Run `bun run check:docs` locally, re-read the pages it names, and update the references.\n\n```\n%s\n```' "$(tail -c 3000 drift.log)")"
+            printf 'The weekly check exited %s (1: changed assertions; 2: evidence unavailable). Run `bun run check:docs` and inspect the evidence before changing references.\n\n```\n' "$CHECK_RESULT" > issue-body.md
+            tail -c 3000 drift.log >> issue-body.md
+            printf '\n```\n' >> issue-body.md
+            gh issue create --title "$title" --body-file issue-body.md
           fi

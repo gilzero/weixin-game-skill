@@ -7,9 +7,9 @@ description: >-
   graphics, touch input, audio that stops or won't play, the top-right menu button (胶囊按钮) or safe area, subpackages
   (分包) and package size, friend leaderboards (开放数据域 排行榜), sharing (转发), rewarded ads (激励视频), virtual
   payment (虚拟支付), privacy compliance, or porting a browser, H5 or Canvas game to WeChat. Not for ordinary WeChat
-  mini programs (小程序) built from WXML pages, or web games that will not run inside WeChat.
+  mini programs (小程序) built from WXML pages, Douyin/抖音 games using tt APIs, or web games not targeting WeChat.
+  Includes Cocos, LayaAir and Unity/Tuanjie exports targeting WeChat; preserve their engine workflow.
 license: MIT
-compatibility: Live docs lookup needs network access. Running a game needs WeChat DevTools and a real or test AppID.
 metadata:
   version: '2.0.0'
   docs-verified: '2026-11-06'
@@ -17,20 +17,25 @@ metadata:
 
 # WeChat mini games
 
-A mini game is one full-screen canvas driven by `game.js`, with no DOM, CSS or `window`. JavaScript runs in
-JavaScriptCore on iOS and V8 on Android, and DevTools is only a simulator, so the phone has the final say.
+The native JavaScript path starts at `game.js` and draws on a canvas, with no DOM, CSS or `window`. Engine exports
+can use other rendering and runtime modes. DevTools is a simulator; target clients have the final say.
+Live docs lookup needs network access. Running a game needs WeChat DevTools and a real or test AppID.
 
 ## Choose a starting point
 
-| Situation               | What to do                                                                       |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| New game                | Copy `assets/starter/` into the project, then replace `js/game/` with the game   |
-| Existing game           | Read the reference for the topic below before changing code                      |
-| Porting a browser game  | Read [rendering and layout](references/rendering-and-layout.md), section Porting |
-| API or limit not listed | Look it up with the live docs commands below                                     |
+Inspect the project first: engine/version, source and generated directories, build commands, exporter/SDK version,
+renderer, runtime/performance mode, target platforms and minimum base library. A `game.js` alone does not mean native JS.
 
-The starter runs with no build step. Its `js/platform/` files already handle the bugs listed in this skill, so build on
-them rather than rewriting them. `js/game/` holds a small sample game that is meant to be replaced. Keep game rules in
+| Situation                          | What to do                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| New lightweight native JS game     | Copy `assets/starter/` into the project, then replace `js/game/` with the game                    |
+| Existing native JS game            | Read the reference for the topic below before changing code                                       |
+| Engine project or generated export | Read [engines.md](references/engines.md); change source/build settings, preserve engine ownership |
+| Porting a browser game             | Read [rendering and layout](references/rendering-and-layout.md), section Porting                  |
+| API or limit not listed            | Look it up with the live docs commands below                                                      |
+
+The starter runs with no build step. Its `js/platform/` files provide tested baseline patterns; preserve their supported behavior and
+check the documented limitations before extending them. `js/game/` holds a small sample game that is meant to be replaced. Keep game rules in
 plain modules that never touch `wx`, because that is what makes them testable without WeChat.
 
 | Topic                                                         | Read                                                            |
@@ -39,12 +44,16 @@ plain modules that never touch `wx`, because that is what makes them testable wi
 | Canvas, sharpness, game loop, menu button, safe area, porting | [rendering-and-layout.md](references/rendering-and-layout.md)   |
 | Touch, audio, foreground and background, errors               | [input-audio-lifecycle.md](references/input-audio-lifecycle.md) |
 | Package size, subpackages, downloads, files, storage, network | [assets-and-network.md](references/assets-and-network.md)       |
-| Leaderboards, open data context, sharing, user info           | [social-and-open-data.md](references/social-and-open-data.md)   |
+| Leaderboards, sharing, user info, game club, subscriptions    | [social-and-open-data.md](references/social-and-open-data.md)   |
 | Rewarded, banner and interstitial ads, virtual payment        | [monetization.md](references/monetization.md)                   |
 | Memory, Workers, startup time                                 | [performance.md](references/performance.md)                     |
 | Login, privacy compliance, updates, release checks            | [privacy-and-release.md](references/privacy-and-release.md)     |
+| DevTools agent tooling, backend choices                       | [tooling-and-backend.md](references/tooling-and-backend.md)     |
+| Social components, game services, operations, desktop         | [capability-map.md](references/capability-map.md)               |
 
 ## Rules that prevent most bugs
+
+For engine projects, verify these behaviors through the engine adapters; do not install a second native platform layer.
 
 1. **The first `wx.createCanvas()` is the screen.** Every later call makes an offscreen canvas, so create the screen
    canvas before any library can. `wx.createOffscreenCanvas` is not in the mini game API docs.
@@ -75,23 +84,27 @@ doc page is available as clean Markdown by changing `.html` to `.md`, which avoi
 https://developers.weixin.qq.com/minigame/dev/api/render/canvas/wx.createCanvas.md
 ```
 
-`scripts/wx-doc.sh` wraps this. Run it from this skill's directory:
+`scripts/wx-doc.sh` wraps this. Resolve `SKILL_ROOT` to the absolute directory containing this loaded `SKILL.md`
+(using the host-provided skill location), not the game project or current working directory:
 
 ```bash
-sh scripts/wx-doc.sh find getMenuButton                        # find page paths by name
-sh scripts/wx-doc.sh read api/ui/menu/wx.getMenuButtonBoundingClientRect
+sh "$SKILL_ROOT/scripts/wx-doc.sh" find 胶囊        # matches paths, titles and the capsule alias
+sh "$SKILL_ROOT/scripts/wx-doc.sh" read api/ui/menu/wx.getMenuButtonBoundingClientRect
 ```
 
 Look it up when using an API these references do not show, when quoting a limit in a user-facing decision, and whenever
 behaviour contradicts these notes. Payment, ads and privacy rules change most often, so always check those before
-giving a definite answer. The references were last verified on the `docs-verified` date above.
+giving a definite answer. If retrieval fails or returns an error page, mark the decision unverified, keep supported
+work moving, and do not invent updated limits. The `docs-verified` date is the oldest verification date across references; individual files may be newer.
 
 ## Verify the work
 
 Say which of these actually ran. A pass in one does not imply the others.
 
 1. **Headless tests:** run game rules directly, and platform code against a stubbed `wx`.
-2. **DevTools:** the CLI needs the service port enabled in Settings, then Security. On macOS:
+2. **DevTools:** first read [tooling](references/tooling-and-backend.md). If `wechatide` exists, load its exported skill,
+   verify game-project support, then compile, inspect console errors and capture the simulator after relevant changes.
+   Refresh success alone is not compilation evidence. Otherwise the classic CLI needs the service port enabled in Settings, then Security. On macOS:
    `/Applications/wechatwebdevtools.app/Contents/MacOS/cli open --project <path>`. On Windows it is `cli.bat` in the
    install folder. The project needs a real or test AppID. The CLI rejects the placeholder `touristappid`, so a project
    using it has to be imported through the DevTools window, where you can choose 测试号.

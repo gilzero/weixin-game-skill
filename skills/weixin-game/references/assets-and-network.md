@@ -51,24 +51,68 @@ loadTask.onProgressUpdate(result => drawProgress(result.progress));
 ## Downloading and caching
 
 ```js
-const cachedPath = `${wx.env.USER_DATA_PATH}/level-2.png`;
 const fileSystem = wx.getFileSystemManager();
+const pendingImages = new Map();
+const cacheUrls = new Map();
 
-function loadCachedImage(url, onReady, onFailure) {
-  fileSystem.access({
-    path: cachedPath,
-    success: () => onReady(cachedPath),
-    fail: () => {
-      wx.downloadFile({
-        url,
-        filePath: cachedPath,
-        success: result => (result.statusCode === 200 ? onReady(cachedPath) : onFailure(result)),
-        fail: onFailure,
+// cacheKey is an immutable versioned filename from the asset manifest.
+function loadCachedImage(url, cacheKey) {
+  if (!/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg)$/.test(cacheKey)) return Promise.reject(new Error('Invalid cache key'));
+  if (cacheUrls.has(cacheKey) && cacheUrls.get(cacheKey) !== url)
+    return Promise.reject(new Error('Cache key reused for another URL'));
+  cacheUrls.set(cacheKey, url);
+  if (pendingImages.has(cacheKey)) return pendingImages.get(cacheKey);
+  const cachedPath = `${wx.env.USER_DATA_PATH}/${cacheKey}`;
+  const task = new Promise((resolve, reject) => {
+    function discard(path, error) {
+      fileSystem.unlink({
+        filePath: path,
+        success: () => reject(error),
+        fail: cleanupError => {
+          console.error('cache staging cleanup failed', cleanupError);
+          reject(error);
+        },
       });
-    },
+    }
+    fileSystem.access({
+      path: cachedPath,
+      success: () => resolve(cachedPath),
+      fail: () =>
+        wx.downloadFile({
+          url,
+          success: result => {
+            const temporaryPath = result.tempFilePath;
+            if (result.statusCode !== 200) {
+              discard(temporaryPath, new Error(`Image download HTTP ${result.statusCode}`));
+              return;
+            }
+            const image = wx.createImage();
+            image.onerror = () => discard(temporaryPath, new Error('Downloaded image cannot be decoded'));
+            image.onload = () =>
+              fileSystem.rename({
+                oldPath: temporaryPath,
+                newPath: cachedPath,
+                success: () => resolve(cachedPath),
+                fail: error => discard(temporaryPath, error),
+              });
+            image.src = temporaryPath;
+          },
+          fail: reject,
+        }),
+    });
   });
+  const sharedTask = task.finally(() => pendingImages.delete(cacheKey));
+  pendingImages.set(cacheKey, sharedTask);
+  return sharedTask;
 }
 ```
+
+Use a new manifest key when content changes, including across launches; do not reuse a key for another URL.
+Concurrent loads share one promise. The temporary download is checked for HTTP success and image decoding before
+[rename](https://developers.weixin.qq.com/minigame/dev/api/file/FileSystemManager.rename.md) promotes it. Rejected
+staging files are [removed](https://developers.weixin.qq.com/minigame/dev/api/file/FileSystemManager.unlink.md).
+For larger pipelines, add integrity checks, bounded eviction and low-storage recovery; preserve assets used by the
+currently running version. Engine projects should use their engine cache instead.
 
 From the [file system guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/file-system.md):
 
@@ -105,3 +149,7 @@ From the [network guide](https://developers.weixin.qq.com/minigame/dev/guide/bas
 - Domain checks can be switched off in DevTools with `urlCheck: false`, but that only affects the simulator. A game that
   works only with it off will fail for players.
 - [微信云托管](https://cloud.weixin.qq.com/cloudrun) lets a game call its backend without registering domains.
+
+For network features, bound retries with backoff and cancel owned tasks on scene disposal. Retry reads safely; retry
+mutations only with server idempotency keys. Treat background interruption and reconnect as explicit states, and surface
+terminal failures rather than retrying forever.

@@ -51,13 +51,14 @@
         "States purchases must be confirmed by the server rather than the client callback",
         "Decides iOS payment at runtime rather than assuming it is impossible",
         "If it calls wx.checkIsSupportMidasPayment, it reads res.data.allow_pay",
-        "Mentions the eligibility requirements for virtual payment"
+        "Mentions the eligibility requirements for virtual payment",
+        "Uses the server-signed requestMidasPaymentGameItem path with mode coins for currency and notes the API table conflict"
       ]
     },
     {
       "id": 4,
       "name": "package-size-and-worker",
-      "prompt": "Our WeChat mini game can't upload: the whole project is 24MB, with 6MB of levels in stage2/ and stage3/, plus lots of .webp textures that look fine in DevTools. Also pathfinding is causing frame drops so I want to move it to a worker thread that also reads saved settings with wx.getStorageSync. Tell me what to change. Write outputs/game.json, outputs/load-stage.js (loads a stage with a progress bar) and outputs/path-worker.js plus whatever main-thread code is needed, and put your explanation in outputs/notes.md.",
+      "prompt": "Our WeChat mini game can't upload: the whole project is 24MB, with 6MB of levels in stage2/ and stage3/, plus lots of .webp textures that look fine in DevTools. Also pathfinding is causing frame drops so I want to move it to an original Worker thread (no Worker V2 rollout access) that also reads saved settings with wx.getStorageSync. Tell me what to change. Write outputs/game.json, outputs/load-stage.js (loads a stage with a progress bar) and outputs/path-worker.js plus whatever main-thread code is needed, and put your explanation in outputs/notes.md.",
       "expected_output": "Correct limits, subpackage loading, whitelist warning about webp, and a Worker that gets settings passed in rather than calling wx.",
       "files": [],
       "expectations": [
@@ -68,8 +69,98 @@
         "game.json declares workers",
         "Calls wx.loadSubpackage and uses onProgressUpdate",
         "Warns that webp is not on the upload whitelist",
-        "States wx APIs are not available in a Worker and passes settings by message",
-        "Mentions that only one Worker can run at a time"
+        "Scopes the no-wx rule to the original Worker and passes settings by message",
+        "Scopes the one-Worker concurrency restriction to the original Worker"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "starter-scaffolding",
+      "prompt": "从零做一个原生 Canvas 微信小游戏：点击下落的水果得分，20 秒一局，记录最高分。输出可直接导入开发者工具的完整项目到 outputs/，无需构建或依赖。说明项目是如何从随附 starter 开始的，并替换示例玩法。",
+      "expected_output": "A runnable dependency-free project derived from assets/starter with replacement game rules and preserved platform services.",
+      "files": [],
+      "expectations": [
+        "Uses the bundled assets/starter as the starting point and preserves its platform service behavior when the skill is supplied",
+        "Includes game.js game.json and project.config.json under outputs with compileType game",
+        "Replaces js/game with falling-fruit rules rather than shipping the unchanged Tap Rush sample",
+        "Keeps wx calls in platform modules or the entry point and game rules independent of wx",
+        "Requires no build step or runtime dependencies and uses CommonJS",
+        "Does not claim a DevTools or phone run without actual execution evidence"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "audio-and-lifecycle",
+      "prompt": "Write outputs/audio.js for our WeChat mini game: looping BGM, overlapping hit sounds, mute and unmute, and cleanup when the game scene is replaced. Phone calls and backgrounding can end in either order. We also use iOS High Performance mode. Explain remaining phone checks in outputs/notes.md.",
+      "expected_output": "Pooled audio with separate visibility, interruption and user intent states, compatible backend choice and complete teardown.",
+      "files": [],
+      "expectations": [
+        "Uses wx.createInnerAudioContext for BGM and reuses multiple voices for overlapping effects",
+        "Handles both wx.onHide/onShow and wx.onAudioInterruptionBegin/End",
+        "Does not resume playback on interruption end while the game remains hidden",
+        "Keeps music intent separate from muted state so unmuting does not restart deliberately paused music",
+        "Avoids unconditional useWebAudioImplement true in iOS High Performance mode",
+        "Restarts pooled effects with stop then play rather than seek then play",
+        "Removes owned global listeners and destroys audio contexts during cleanup including WebAudio close if used",
+        "Distinguishes mocked verification from real phone testing"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "privacy-and-user-info",
+      "prompt": "微信小游戏要在首页显示玩家头像昵称。请写 outputs/profile.js 和 outputs/notes.md，包含隐私弹窗、查看隐私政策、同意和拒绝、首次授权和已授权流程。玩家拒绝后也应该能玩。可以用 wx.getUserProfile 吗？",
+      "expected_output": "Privacy and native user-info authorization flow or display-only open data alternative without inventing getUserProfile.",
+      "files": [],
+      "expectations": [
+        "Explains wx.getUserProfile is not a documented mini game API and does not call it",
+        "Reports exposureAuthorization when a custom privacy dialog is displayed through wx.onNeedPrivacyAuthorization",
+        "Opens the privacy policy using wx.openPrivacyContract",
+        "Resolves agree and disagree from real taps and permits play after refusal",
+        "Uses wx.createUserInfoButton for first scope.userInfo authorization or explicitly chooses display-only open data context",
+        "Checks existing authorization before wx.getUserInfo and does not expect wx.authorize to show a user-info dialog",
+        "Mentions MP privacy declarations and cleans up native user-info buttons and listeners"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "engine-source-routing",
+      "prompt": "Our Cocos Creator WeChat export is 8MB and game.json resets after each build. Use the supplied source/export fixture to propose durable subpackaging and texture changes. Write outputs/notes.md with the source settings to inspect, rebuild validation, and the minimum additional information needed. Do not invent missing build settings or rewrite the game as raw canvas.",
+      "expected_output": "Engine source workflow with generated output boundaries and version-specific verification.",
+      "files": ["fixtures/engine-project.json"],
+      "expectations": [
+        "Recognizes Creator 3.8.7 and uses version-matched Cocos documentation",
+        "Makes durable changes through source assets bundle/build configuration rather than generated game.json",
+        "Preserves engine canvas loop audio and resource ownership",
+        "Does not claim an engine rebuild or device run without evidence",
+        "Identifies missing asset layout or build settings before prescribing exact bundles"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "existing-hud-integration",
+      "prompt": "Fix the score hidden under the capsule in the supplied native WeChat game. Output outputs/js/hud.js and outputs/notes.md. Preserve the existing game.js canvas and loop; describe any required initialization changes. Respect small and landscape windows.",
+      "expected_output": "A HUD module using the existing canvas and logical coordinates with safe bounds.",
+      "files": ["fixtures/existing-hud.json"],
+      "expectations": [
+        "Keeps the existing drawHud export and accepts the existing context and score",
+        "Does not create another main canvas or frame loop",
+        "Uses menu rectangle and window geometry without multiplying touch/layout coordinates by DPR",
+        "Handles missing safeArea and explains resize integration",
+        "Does not claim device verification from a fixture"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "unavailable-docs-and-release",
+      "prompt": "The WeChat documentation reader returned HTTP 200 with <html>Site Unavailable</html>. Our team wants to enable Worker V2 on iOS, ship signed coins payment, and release today. Write outputs/notes.md with what can proceed, unresolved decisions, and the exact validation layers you can claim in this environment. You have not run DevTools or a phone.",
+      "expected_output": "Unavailable evidence is distinguished from drift and no release or rollout guarantees are invented.",
+      "files": [],
+      "expectations": [
+        "Treats the error body as unavailable evidence rather than changed platform facts",
+        "Does not assume Worker V2 supports iOS or DevTools",
+        "Keeps payment eligibility agreement signatures and server reconciliation requirements",
+        "Includes version review and filing before release without promising approval timing",
+        "Does not claim DevTools phone or live payment validation"
       ]
     }
   ]

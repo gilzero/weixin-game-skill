@@ -1,41 +1,48 @@
 // @file: loop.js
-// @desc: frame loop that pauses in background
-// A stall or debugger pause must not teleport game state forward.
+// @desc: disposable frame loop with background pause
 const MAX_FRAME_SECONDS = 0.1;
 
+/** @param {(deltaSeconds: number, elapsedSeconds: number) => void} onFrame */
 function startLoop(onFrame) {
   let running = true;
-  let frameRequested = false;
+  let destroyed = false;
+  /** @type {number | null} */
+  let frameId = null;
   let lastFrameTime = Date.now();
 
   function scheduleFrame() {
-    if (frameRequested) return;
-    frameRequested = true;
-    requestAnimationFrame(runFrame);
+    if (frameId !== null || !running || destroyed) return;
+    frameId = requestAnimationFrame(runFrame);
   }
-
-  // The docs promise no timestamp argument on this callback, so time comes from Date.now.
   function runFrame() {
-    frameRequested = false;
-    if (!running) return;
+    frameId = null;
+    if (!running || destroyed) return;
     const now = Date.now();
-    const deltaSeconds = Math.min(MAX_FRAME_SECONDS, (now - lastFrameTime) / 1000);
-    lastFrameTime = now;
-    onFrame(deltaSeconds);
+    const elapsedSeconds = Math.max(0, (now - lastFrameTime) / 1000);
+    lastFrameTime = Math.max(lastFrameTime, now);
+    onFrame(Math.min(MAX_FRAME_SECONDS, elapsedSeconds), elapsedSeconds);
     scheduleFrame();
   }
-
-  wx.onHide(() => {
+  function handleHide() {
     running = false;
-  });
-  wx.onShow(() => {
-    if (running) return;
+  }
+  function handleShow() {
+    if (running || destroyed) return;
     running = true;
     lastFrameTime = Date.now();
     scheduleFrame();
-  });
-
+  }
+  wx.onHide(handleHide);
+  wx.onShow(handleShow);
   scheduleFrame();
+  return function destroy() {
+    destroyed = true;
+    running = false;
+    wx.offHide(handleHide);
+    wx.offShow(handleShow);
+    if (frameId !== null) cancelAnimationFrame(frameId);
+    frameId = null;
+  };
 }
 
 module.exports = { startLoop };

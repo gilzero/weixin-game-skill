@@ -25,8 +25,7 @@ const sharedCanvas = openDataContext.canvas;
 // Only the main game may size the shared canvas, and resizing clears it.
 sharedCanvas.width = boardWidth * pixelRatio;
 sharedCanvas.height = boardHeight * pixelRatio;
-openDataContext.postMessage({ type: 'submitScore', score: 120 });
-openDataContext.postMessage({ type: 'showRanking' });
+openDataContext.postMessage({ type: 'submitScoreAndShowRanking', score: 120 });
 
 // Inside the frame loop. The ranking arrives asynchronously, so drawing once would capture an empty canvas.
 function drawLeaderboard(ctx) {
@@ -41,8 +40,15 @@ const sharedCanvas = wx.getSharedCanvas();
 const ctx = sharedCanvas.getContext('2d');
 
 function readScore(player) {
-  const entry = player.KVDataList.find(item => item.key === 'score');
-  return entry ? JSON.parse(entry.value).score : 0;
+  const entry = Array.isArray(player.KVDataList) && player.KVDataList.find(item => item.key === 'score');
+  if (!entry) return 0;
+  try {
+    const stored = JSON.parse(entry.value);
+    return stored && typeof stored.score === 'number' && Number.isFinite(stored.score) ? stored.score : 0;
+  } catch (error) {
+    console.error('invalid stored score', error);
+    return 0;
+  }
 }
 
 function drawRanking(players) {
@@ -57,22 +63,35 @@ function drawRanking(players) {
     });
 }
 
+function showRanking() {
+  wx.getFriendCloudStorage({
+    keyList: ['score'],
+    success: result => drawRanking(result.data),
+    fail: error => console.error('ranking failed', error),
+  });
+}
+
+let pendingWrite = false;
 wx.onMessage(message => {
-  if (message.type === 'submitScore') {
+  if (message.type === 'submitScoreAndShowRanking') {
+    if (pendingWrite || !Number.isFinite(message.score)) return;
+    pendingWrite = true;
     wx.setUserCloudStorage({
       KVDataList: [{ key: 'score', value: JSON.stringify({ score: message.score }) }],
+      success: showRanking,
       fail: error => console.error('score upload failed', error),
+      complete: () => {
+        pendingWrite = false;
+      },
     });
   }
-  if (message.type === 'showRanking') {
-    wx.getFriendCloudStorage({
-      keyList: ['score'],
-      success: result => drawRanking(result.data),
-      fail: error => console.error('ranking failed', error),
-    });
-  }
+  if (message.type === 'showRanking' && !pendingWrite) showRanking();
 });
 ```
+
+Submission and refresh are one operation: the read begins only after the write succeeds. This minimal example ignores
+new submissions while a write is pending; queue the newest score if the game can produce scores during that interval.
+Do not infer completion ordering from message ordering.
 
 Things that catch people out:
 
@@ -139,3 +158,65 @@ From the [user info guide](https://developers.weixin.qq.com/minigame/dev/guide/o
 - Check `wx.getSetting` first. If `scope.userInfo` is already granted, call `wx.getUserInfo`.
 - For display only, the open data context can show the player's name and avatar with no authorization.
 - This counts as personal data, so [privacy setup](privacy-and-release.md#privacy) comes first.
+
+## Game club button
+
+[`wx.createGameClubButton`](https://developers.weixin.qq.com/minigame/dev/api/open-api/game-club/wx.createGameClubButton.md)
+creates a native button above the canvas. Position it in logical screen coordinates, outside the capsule and your controls:
+
+```js
+const gameScreen = createScreen();
+const club = wx.createGameClubButton({
+  type: 'image',
+  icon: 'green',
+  style: {
+    left: gameScreen.content.left + 16,
+    top: gameScreen.content.bottom - 56,
+    width: 96,
+    height: 40,
+    backgroundColor: '#ffffff',
+  },
+});
+const unsubscribe = gameScreen.onResize(layout => {
+  club.style.left = layout.content.left + 16;
+  club.style.top = layout.content.bottom - 56;
+});
+function leaveClubScreen() {
+  unsubscribe();
+  club.destroy();
+}
+```
+
+Use `club.hide()` / `club.show()` while switching overlays. Creating a button alone does not establish
+[ad eligibility](monetization.md#ads).
+
+## Subscription messages
+
+Call [`wx.requestSubscribeMessage`](https://developers.weixin.qq.com/minigame/dev/api/open-api/subscribe-message/wx.requestSubscribeMessage.md)
+from an explicit reminder-button tap. Obtain template IDs in the MP console and inspect each ID's result; API success does
+not mean acceptance. Do not mix one-time and permanent template IDs. Your server sends the accepted template notification.
+
+```js
+function onReminderTap() {
+  const templateId = 'template-id-from-mp-console';
+  wx.requestSubscribeMessage({
+    tmplIds: [templateId],
+    success: result => saveSubscriptionChoice(templateId, result[templateId] === 'accept'),
+    fail: error => console.error('subscription request failed', error),
+  });
+}
+function onRankReminderTap() {
+  wx.requestSubscribeSystemMessage({
+    msgTypeList: ['SYS_MSG_TYPE_RANK'],
+    success: result => {
+      if ('SYS_MSG_TYPE_RANK' in result) showRankSubscriptionState(result.SYS_MSG_TYPE_RANK);
+    },
+    fail: error => console.error('system subscription failed', error),
+  });
+}
+```
+
+[`wx.requestSubscribeSystemMessage`](https://developers.weixin.qq.com/minigame/dev/api/open-api/subscribe-message/wx.requestSubscribeSystemMessage.md)
+is also tap-only and uses predefined system message types, not template IDs. Check availability on older clients. Do not
+request either subscription automatically at startup, after a timer, or after an unrelated async operation. Let players
+continue if they decline.

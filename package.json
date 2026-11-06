@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "qc": "prettier --write . --cache && eslint . --fix --cache && tsc --noEmit && tsc --noEmit -p tsconfig.starter.json && bun scripts/check-snippets.ts && bun test",
-    "check:docs": "bun scripts/check-docs.ts"
+    "check:docs": "bun scripts/check-docs.ts",
+    "eval": "bun scripts/run-evals.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

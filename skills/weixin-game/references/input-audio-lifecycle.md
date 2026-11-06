@@ -74,7 +74,17 @@ wx.onAudioInterruptionEnd(() => {
 ```
 
 Track `wantsMusic` separately from `muted`. Otherwise unmuting restarts music that the player or the game paused on
-purpose.
+purpose. Track whether the game is hidden independently: interruption end must not resume music until the game is
+visible again. The starter enforces this for music, effects and synthesized tones.
+
+The starter defaults to `createAudio({ useWebAudioImplement: false })`. Opt in only for a supported runtime mode.
+Pooled effects restart with [`stop()`](https://developers.weixin.qq.com/minigame/dev/api/media/audio/InnerAudioContext.stop.md)
+then `play()`, whose documented behavior restarts from the beginning; client-specific timing still needs phone testing.
+
+On teardown, call `audio.destroy()`, `input.destroy()`, `screen.destroy()` and the disposer returned by `startLoop()`.
+They remove their own global listeners using the matching `off` APIs, clear timers or pending frames, destroy audio
+voices and [close WebAudio](https://developers.weixin.qq.com/minigame/dev/api/media/audio/WebAudioContext.close.md).
+App services are installed once for the lifetime of the game.
 
 A common belief is that WeChat requires a user gesture before audio can play. The audio docs state no such rule, and
 their own sample uses `autoplay`. If audio is silent, look first at the mute switch setting, the file format, the
@@ -106,3 +116,14 @@ functions, `ArrayBuffer` or objects with circular references.
 Check for a newer API with a guard such as `if (wx.getWindowInfo)`, or compare `wx.getAppBaseInfo().SDKVersion` using the function in the
 [compatibility guide](https://developers.weixin.qq.com/minigame/dev/guide/runtime/client-lib/compatibility.md). Each API's
 doc page lists its minimum base library version. Set the minimum for the whole game in the MP console.
+
+## Player diagnostics
+
+The starter keeps detailed errors in the local console and sends only fixed error-category breadcrumbs through
+[realtime logs](https://developers.weixin.qq.com/minigame/dev/guide/runtime/debug/realtimelog/index.md) when available.
+The guide gives 2.14.4 for mini games while the API header says 2.7.1; retain capability detection. To diagnose production
+failures, add a reviewed serializer for a build identifier, runtime/base-library version, error grouping and sanitized
+stack locations. Do not transmit arbitrary rejection objects, login codes, tokens, payment signatures or player content.
+Keep source maps matched to each released build and use the
+[game log analysis guide](https://developers.weixin.qq.com/minigame/dev/guide/runtime/debug/gamelogmanager.md).
+Remote breadcrumbs are not a substitute for testing collection and retrieval on a phone.

@@ -1,42 +1,59 @@
 // @file: audio.js
-// @desc: music sound effects and interruption handling
+// @desc: music effects and interruption handling
 const SOUND_VOICES = 3;
 
-function createAudio() {
+/** @param {{useWebAudioImplement?: boolean}} options */
+function createAudio({ useWebAudioImplement = false } = {}) {
+  /** @type {Map<string, {voices: WechatMinigame.InnerAudioContext[], nextVoice: number}>} */
   const soundPools = new Map();
+  /** @type {WechatMinigame.InnerAudioContext | null} */
   let music = null;
+  /** @type {string | null} */
   let musicSrc = null;
   let wantsMusic = false;
   let muted = false;
   let interrupted = false;
+  let hidden = false;
+  let destroyed = false;
+  /** @type {WechatMinigame.WebAudioContext | null} */
   let webAudio = null;
 
-  function resumeOutput() {
-    if (interrupted) return;
-    if (music && wantsMusic && !muted) music.play();
-    if (webAudio) webAudio.resume();
+  function assertAlive() {
+    if (destroyed) throw new Error('Audio has been destroyed');
   }
-
+  function canPlay() {
+    return !destroyed && !hidden && !interrupted && !muted;
+  }
+  function resumeOutput() {
+    if (!canPlay()) return;
+    if (music && wantsMusic) music.play();
+    if (webAudio) webAudio.resume().catch(error => console.error('audio resume failed', error));
+  }
   function suspendOutput() {
     if (music) music.pause();
-    if (webAudio) webAudio.suspend();
+    soundPools.forEach(pool => pool.voices.forEach(voice => voice.stop()));
+    if (webAudio) webAudio.suspend().catch(error => console.error('audio suspend failed', error));
   }
-
-  wx.onHide(suspendOutput);
-  wx.onShow(resumeOutput);
-  // Playback fails until the interruption (such as a phone call) has ended.
-  if (wx.onAudioInterruptionBegin) {
-    wx.onAudioInterruptionBegin(() => {
-      interrupted = true;
-      suspendOutput();
-    });
+  function handleHide() {
+    hidden = true;
+    suspendOutput();
   }
-  if (wx.onAudioInterruptionEnd) {
-    wx.onAudioInterruptionEnd(() => {
-      interrupted = false;
-      resumeOutput();
-    });
+  function handleShow() {
+    hidden = false;
+    resumeOutput();
   }
+  function handleInterruptionBegin() {
+    interrupted = true;
+    suspendOutput();
+  }
+  function handleInterruptionEnd() {
+    interrupted = false;
+    resumeOutput();
+  }
+  wx.onHide(handleHide);
+  wx.onShow(handleShow);
+  if (wx.onAudioInterruptionBegin) wx.onAudioInterruptionBegin(handleInterruptionBegin);
+  if (wx.onAudioInterruptionEnd) wx.onAudioInterruptionEnd(handleInterruptionEnd);
 
   function destroyMusic() {
     if (music) music.destroy();
@@ -45,57 +62,63 @@ function createAudio() {
   }
 
   return {
-    // InnerAudioContext streams, which suits long tracks better than decoding into memory.
+    // InnerAudio streams long tracks without decoding the whole file into memory.
+    /** @param {string} src */
     playMusic(src, volume = 1) {
+      assertAlive();
       wantsMusic = true;
-      if (musicSrc !== src) {
+      if (musicSrc !== src || !music) {
         destroyMusic();
         music = wx.createInnerAudioContext();
         music.src = src;
         music.loop = true;
-        music.volume = volume;
         music.onError(error => console.error('music failed', src, error));
         musicSrc = src;
       }
-      if (!muted && !interrupted) music.play();
+      music.volume = volume;
+      if (canPlay()) music.play();
     },
-
     pauseMusic() {
       wantsMusic = false;
       if (music) music.pause();
     },
-
     stopMusic() {
       wantsMusic = false;
       destroyMusic();
     },
-
-    // Several voices let the same effect overlap, and the docs ask to reuse instances rather than recreate them.
+    /** @param {string} name @param {string} src */
     loadSound(name, src, voiceCount = SOUND_VOICES) {
+      assertAlive();
+      if (!Number.isInteger(voiceCount) || voiceCount < 1)
+        throw new RangeError('voiceCount must be a positive integer');
+      const previous = soundPools.get(name);
+      if (previous) previous.voices.forEach(voice => voice.destroy());
       const voices = [];
       for (let index = 0; index < voiceCount; index += 1) {
-        const voice = wx.createInnerAudioContext({ useWebAudioImplement: true });
+        // Opt in only after checking the runtime mode; iOS high performance mode does not support this backend.
+        const voice = wx.createInnerAudioContext({ useWebAudioImplement });
         voice.src = src;
         voice.onError(error => console.error('sound failed', name, error));
         voices.push(voice);
       }
       soundPools.set(name, { voices, nextVoice: 0 });
     },
-
+    /** @param {string} name */
     playSound(name, volume = 1) {
+      assertAlive();
       const pool = soundPools.get(name);
       if (!pool) throw new Error(`Sound not loaded: ${name}`);
-      if (muted || interrupted) return;
+      if (!canPlay()) return;
       const voice = pool.voices[pool.nextVoice];
+      if (!voice) throw new Error(`Sound pool is empty: ${name}`);
       pool.nextVoice = (pool.nextVoice + 1) % pool.voices.length;
       voice.volume = volume;
-      voice.seek(0);
+      voice.stop();
       voice.play();
     },
-
-    // Synthesised tones need no asset files, which keeps the main package small.
     beep(frequency = 660, durationSeconds = 0.08, volume = 0.1) {
-      if (muted || interrupted || !wx.createWebAudioContext) return;
+      assertAlive();
+      if (!canPlay() || !wx.createWebAudioContext) return;
       if (!webAudio) webAudio = wx.createWebAudioContext();
       const startAt = webAudio.currentTime;
       const oscillator = webAudio.createOscillator();
@@ -107,20 +130,28 @@ function createAudio() {
       oscillator.start(startAt);
       oscillator.stop(startAt + durationSeconds);
     },
-
+    /** @param {boolean} nextMuted */
     setMuted(nextMuted) {
+      assertAlive();
       muted = nextMuted;
-      if (!music) return;
-      if (muted) music.pause();
-      else if (wantsMusic && !interrupted) music.play();
+      if (muted) suspendOutput();
+      else resumeOutput();
     },
-
     isMuted: () => muted,
-
     destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      wx.offHide(handleHide);
+      wx.offShow(handleShow);
+      if (wx.offAudioInterruptionBegin) wx.offAudioInterruptionBegin(handleInterruptionBegin);
+      if (wx.offAudioInterruptionEnd) wx.offAudioInterruptionEnd(handleInterruptionEnd);
       destroyMusic();
       soundPools.forEach(pool => pool.voices.forEach(voice => voice.destroy()));
       soundPools.clear();
+      if (webAudio) {
+        webAudio.close().catch(error => console.error('audio close failed', error));
+        webAudio = null;
+      }
     },
   };
 }

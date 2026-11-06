@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "description": "Cocos source project with generated WeChat output",
+  "files": {
+    "package.json": "{\"creator\":{\"version\":\"3.8.7\"}}",
+    "assets/scripts/GameController.ts": "// @file: GameController.ts\n// @desc: owns game scene behavior\nexport const score = 0;\n",
+    "build/wechatgame/game.js": "// @file: game.js\n// @desc: generated engine bootstrap\n// Generated output overwritten by the next Creator build\nrequire('./application.js');\n",
+    "build/wechatgame/game.json": "{\"deviceOrientation\":\"portrait\"}"
+  }
+}

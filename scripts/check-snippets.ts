@@ -1,90 +1,113 @@
 // @file: check-snippets.ts
-// @desc: type check snippets against wx typings
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+// @desc: check documentation syntax and API types
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import pino from 'pino';
+import ts from 'typescript';
 
 const log = pino({ base: null, timestamp: false });
 const repoRoot = resolve(import.meta.dir, '..');
-const referencesDir = join(repoRoot, 'skills/weixin-game/references');
+const skillRoot = join(repoRoot, 'skills/weixin-game');
 
-// Snippets call helpers they do not define, so only API misuse counts as a failure here.
-const API_MISUSE_CODES = new Set(['TS2339', 'TS2345', 'TS2353', 'TS2551', 'TS2554', 'TS2561', 'TS2322']);
-const WX_ERROR_HINT = /WechatMinigame|\bWx\b|Option\b|Options\b|known properties|typeof wx/;
-
-class SnippetCheckError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SnippetCheckError';
-  }
-}
-
-interface Snippet {
+export interface Snippet {
   source: string;
   code: string;
+  language: string;
 }
 
-function collectSnippets(): Snippet[] {
-  return readdirSync(referencesDir)
-    .filter(name => name.endsWith('.md'))
-    .flatMap(name => {
-      const markdown = readFileSync(join(referencesDir, name), 'utf8');
-      return [...markdown.matchAll(/```js\n([\s\S]*?)```/g)].map((match, index) => ({
-        source: `${name}#${index + 1}`,
-        code: match[1] ?? '',
-      }));
-    });
+export function collectSnippets(root = skillRoot): Snippet[] {
+  const files = [
+    'SKILL.md',
+    ...readdirSync(join(root, 'references'))
+      .filter(name => name.endsWith('.md'))
+      .map(name => `references/${name}`),
+  ];
+  return files.flatMap(name => {
+    const markdown = readFileSync(join(root, name), 'utf8');
+    return [...markdown.matchAll(/^```(js|javascript|ts|typescript)\s*\n([\s\S]*?)^```/gm)].map(match => ({
+      source: `${name}:${markdown.slice(0, match.index).split('\n').length + 1}`,
+      language: match[1] ?? 'js',
+      code: match[2] ?? '',
+    }));
+  });
 }
 
-function main(): void {
-  const snippets = collectSnippets();
-  if (snippets.length === 0) throw new SnippetCheckError(`No js snippets found in ${referencesDir}`);
-
+export function checkSnippets(
+  snippets: Snippet[],
+  optionsOverride: { typeRoots?: string[] } = {},
+): { snippet: string; line: number; code: number; error: string }[] {
+  if (snippets.length === 0) throw new Error('No documentation snippets found');
   const workDir = mkdtempSync(join(tmpdir(), 'wx-snippets-'));
-  const sourceByFile = new Map<string, string>();
+  const sources = new Map<string, string>();
   try {
+    mkdirSync(join(workDir, 'js/platform'), { recursive: true });
+    copyFileSync(join(skillRoot, 'assets/starter/js/platform/loop.js'), join(workDir, 'js/platform/loop.js'));
     snippets.forEach((snippet, index) => {
-      const fileName = `snippet-${index}.js`;
-      sourceByFile.set(fileName, snippet.source);
-      writeFileSync(join(workDir, fileName), snippet.code);
+      const file = join(workDir, `snippet-${index}.${/^(ts|typescript)$/.test(snippet.language) ? 'ts' : 'js'}`);
+      sources.set(file, snippet.source);
+      writeFileSync(file, snippet.code);
     });
+    // The upstream Canvas.getContext return type is any; narrow 2D calls to the standard interface.
+    const canvasTypes = join(workDir, 'canvas.d.ts');
     writeFileSync(
-      join(workDir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ES2017',
-          lib: ['ES2020'],
-          types: ['minigame-api-typings'],
-          typeRoots: [join(repoRoot, 'node_modules')],
-          allowJs: true,
-          checkJs: true,
-          noEmit: true,
-          skipLibCheck: true,
-          moduleDetection: 'force',
-        },
-        include: ['*.js'],
-      }),
+      canvasTypes,
+      `
+      declare namespace WechatMinigame {
+        interface Canvas { getContext(type: '2d'): CanvasRenderingContext2D; }
+      }
+    `,
     );
-
-    const tscPath = join(repoRoot, 'node_modules/.bin/tsc');
-    const result = Bun.spawnSync([tscPath, '--pretty', 'false', '-p', workDir], { cwd: repoRoot });
-    const output = result.stdout.toString();
-    const problems = output
-      .split('\n')
-      .map(line => /(snippet-\d+\.js)\((\d+),\d+\): error (TS\d+): (.*)$/.exec(line))
-      .filter((match): match is RegExpExecArray => match !== null)
-      .filter(match => API_MISUSE_CODES.has(match[3] ?? '') && WX_ERROR_HINT.test(match[4] ?? ''))
-      .map(match => ({ snippet: sourceByFile.get(match[1] ?? ''), line: Number(match[2]), error: match[4] }));
-
-    if (problems.length > 0) {
-      log.error({ problems }, 'snippets misuse the wx API');
-      process.exit(1);
-    }
-    log.info({ checked: snippets.length, root: relative(repoRoot, referencesDir) }, 'snippets match the wx typings');
+    const options: ts.CompilerOptions = {
+      target: ts.ScriptTarget.ES2020,
+      lib: ['lib.es2020.d.ts', 'lib.dom.d.ts'],
+      types: ['minigame-api-typings'],
+      typeRoots: optionsOverride.typeRoots ?? [join(repoRoot, 'node_modules')],
+      allowJs: true,
+      checkJs: true,
+      noImplicitAny: false,
+      noEmit: true,
+      skipLibCheck: true,
+      moduleDetection: ts.ModuleDetectionKind.Force,
+    };
+    const host = ts.createCompilerHost(options);
+    const readFile = host.readFile;
+    host.readFile = path => {
+      const source = readFile(path);
+      // 3.8.21 contradicts live examples for the privacy resolver and signed payment string.
+      return path.endsWith('/types/wx/lib.wx.api.d.ts')
+        ? source
+            ?.replace(
+              /type OnNeedPrivacyAuthorizationCallback = \(\s*res: GeneralCallbackResult\s*\) => void/,
+              "type OnNeedPrivacyAuthorizationCallback = (resolve: (choice: {event: 'exposureAuthorization' | 'agree' | 'disagree'}) => void) => void",
+            )
+            .replace('signData: SignData1', 'signData: string')
+        : source;
+    };
+    const program = ts.createProgram(
+      [...sources.keys(), canvasTypes, join(repoRoot, 'scripts/snippet-globals.d.ts')],
+      options,
+      host,
+    );
+    return ts.getPreEmitDiagnostics(program).map(diagnostic => ({
+      snippet: diagnostic.file ? (sources.get(diagnostic.file.fileName) ?? diagnostic.file.fileName) : 'compiler',
+      line:
+        diagnostic.file && diagnostic.start !== undefined
+          ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start).line + 1
+          : 0,
+      code: diagnostic.code,
+      error: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+    }));
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
 }
 
-main();
+if (import.meta.main) {
+  const snippets = collectSnippets();
+  const problems = checkSnippets(snippets);
+  if (problems.length > 0) {
+    log.error({ problems }, 'documentation snippets failed validation');
+    process.exitCode = 1;
+  } else log.info({ checked: snippets.length }, 'documentation snippets passed');
+}
