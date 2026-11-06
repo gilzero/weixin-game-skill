@@ -82,16 +82,17 @@ WeChat changes its limits and APIs regularly, so the skill does not rely on a fr
 
 ## What's been tested
 
-| Check                                                   | How                           |
-| ------------------------------------------------------- | ----------------------------- |
-| Starter logic and platform code against a mocked `wx`   | Automated, `bun qc`           |
-| Doc snippets against the official `wx` type definitions | Automated, `bun qc`           |
-| Facts, links and API names against the live docs        | Automated, weekly             |
-| All three install routes                                | Run by hand                   |
-| A real round in headless Chromium on four screen shapes | Run by hand, with a stub `wx` |
-| WeChat DevTools and real phones                         | **Not yet run**               |
+| Check                                                            | How                           |
+| ---------------------------------------------------------------- | ----------------------------- |
+| Starter logic and platform code against a mocked `wx`            | Automated, `bun qc`           |
+| Doc snippets against the official `wx` type definitions          | Automated, `bun qc`           |
+| Facts, links and API names against the live docs                 | Automated, weekly             |
+| All three install routes                                         | Run by hand                   |
+| A real round in headless Chromium on four screen shapes          | Run by hand, with a stub `wx` |
+| A real round in the WeChat DevTools simulator, with a test AppID | Run by hand                   |
+| Real phones                                                      | **Not yet run**               |
 
-Nothing here has run inside WeChat itself, so check DevTools and real iOS and Android phones before you ship. The docs also
+Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. The docs also
 leave some things open, such as `ctx.roundRect` support and `#rrggbbaa` colours. The skill says so and uses feature
 detection instead of guessing.
 

@@ -49,8 +49,7 @@ the first two in step. Claude Code only offers an update when the plugin version
 
 ## Known gaps
 
-- The starter has not run in WeChat DevTools or on a phone, because the CLI rejects the `touristappid` placeholder and needs a
-  real or test AppID.
+- The starter has run in the DevTools simulator with a test AppID (one round on iPhone 12/13 size), but not on a phone.
 - Mocked runs cannot prove real WeChat behaviour. Landscape safe area handling covers both shapes the client might
   report, but has not been confirmed on a notched phone.
 - GitHub disables scheduled workflows in a public repo after 60 days with no repository activity, and the drift check then
