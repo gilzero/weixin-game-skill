@@ -53,5 +53,5 @@ the first two in step. Claude Code only offers an update when the plugin version
   real or test AppID.
 - Mocked runs cannot prove real WeChat behaviour. Landscape safe area handling covers both shapes the client might
   report, but has not been confirmed on a notched phone.
-- `docs-drift.yml` only runs once this is pushed to GitHub, and whether WeChat's site answers GitHub's runners is
-  untested. If it cannot, the job exits with code 2 and opens an issue saying so.
+- GitHub disables scheduled workflows in a public repo after 60 days with no repository activity, and the drift check then
+  stops silently. Re-enable it with `gh workflow enable docs-drift.yml`.
