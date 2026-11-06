@@ -14,10 +14,13 @@ claude plugin marketplace add gilzero/weixin-game-skill
 claude plugin install weixin-game@weixin-game-skill
 ```
 
-**Other agents (Codex, Cursor and more)**, using the open [skills CLI](https://github.com/vercel-labs/skills):
+**Codex, Cursor and Antigravity**, using the open [skills CLI](https://github.com/vercel-labs/skills). Run it in your project
+to install into `.agents/skills/`, which all three read:
 
 ```bash
-bunx skills add gilzero/weixin-game-skill
+bunx skills add gilzero/weixin-game-skill -a codex -y
+bunx skills add gilzero/weixin-game-skill -a cursor -y
+bunx skills add gilzero/weixin-game-skill -a antigravity -y
 ```
 
 **Manual**, for a single project or to pin a version:
@@ -88,11 +91,13 @@ WeChat changes its limits and APIs regularly, so the skill does not rely on a fr
 | Doc snippets against the official `wx` type definitions          | Automated, `bun qc`           |
 | Facts, links and API names against the live docs                 | Automated, weekly             |
 | All three install routes                                         | Run by hand                   |
+| Codex, Cursor and Antigravity CLIs find the skill                | Run by hand                   |
 | A real round in headless Chromium on four screen shapes          | Run by hand, with a stub `wx` |
 | A real round in the WeChat DevTools simulator, with a test AppID | Run by hand                   |
 | Real phones                                                      | **Not yet run**               |
 
-Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. The docs also
+Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not
+measured on how well they follow it. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. The docs also
 leave some things open, such as `ctx.roundRect` support and `#rrggbbaa` colours. The skill says so and uses feature
 detection instead of guessing.
 

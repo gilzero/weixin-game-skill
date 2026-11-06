@@ -29,6 +29,7 @@ Use `bun`, never npm, pnpm or yarn.
 
 - The starter must run in DevTools with no build step and no dependencies, so it uses CommonJS and plain JS.
 - Nothing in `skills/` may depend on `node_modules`.
+- `SKILL.md` and the references must stay agent-neutral, because Codex, Cursor and Antigravity load the same files.
 - pino is for `scripts/` only. The WeChat runtime cannot load it, so the starter logs with `console.error` on purpose.
 - Do not run `cli preview` or `cli upload` without asking, because both send the package to WeChat.
 - `compileType` is `"game"` to match official sample projects, even though the docs table says `minigame`.
@@ -49,6 +50,8 @@ the first two in step. Claude Code only offers an update when the plugin version
 
 ## Known gaps
 
+- Codex, Cursor and Antigravity were only checked for discovering the skill from `.agents/skills/`. Evals ran on Claude only.
+- `scripts/wx-doc.sh` needs `sh`. Without it, agents can use the `.md` doc URLs described in `SKILL.md`.
 - The starter has run in the DevTools simulator with a test AppID (one round on iPhone 12/13 size), but not on a phone.
 - Mocked runs cannot prove real WeChat behaviour. Landscape safe area handling covers both shapes the client might
   report, but has not been confirmed on a notched phone.
