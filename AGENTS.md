@@ -18,6 +18,18 @@ covers what it is and how to install it.
   In Codex CLI/IDE, use `/skills` or `$weixin-game`. Report the resolved skill path and restart if discovery is stale.
 - Installing this skill does not install WeChat DevTools, select an AppID, provision a backend or authorize uploads.
 
+Example prompt to send to a coding agent:
+
+```text
+Install the weixin-game skill from:
+https://github.com/gilzero/weixin-game-skill
+
+Install it for this project and the coding agent you are running in.
+Follow the README’s matching installation instructions.
+Preserve the complete skill folder, including references, scripts, and assets.
+Verify that you can discover and load the skill, and report its installed path.
+```
+
 ## Commands
 
 - `bun qc`: prettier, eslint, both type checks, doc snippet check, then all tests. Run this before calling work done.
