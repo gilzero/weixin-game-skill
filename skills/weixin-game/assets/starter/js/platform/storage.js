@@ -29,6 +29,17 @@ function createStorage(keyPrefix) {
         return false;
       }
     },
+
+    /** @param {string} key */
+    remove(key) {
+      try {
+        wx.removeStorageSync(fullKey(key));
+        return true;
+      } catch (error) {
+        console.error('storage remove failed', key, error);
+        return false;
+      }
+    },
   };
 }
 

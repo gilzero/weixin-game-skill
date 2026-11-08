@@ -1,6 +1,6 @@
 # Engine projects and runtime profiles
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 ## Detect before editing
 
@@ -32,13 +32,19 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
   compatibility caveats. Do not upgrade the engine or SDK solely to match an example.
 - [General adaptation](https://developers.weixin.qq.com/minigame/dev/guide/game-engine/common-adaptation.md): for
   engines exporting WASM + WebGL H5 packages. Read its SDK integration and compatibility docs before choosing it.
+- [WASM code splitting](https://developers.weixin.qq.com/minigame/dev/guide/game-engine/WasmSplitV2_1.md): match the
+  splitting plugin to `plugins` in `game.json`. General adaptation (`WXGameKit`) must pair with `Wasm代码分包V2`
+  (`wasmsplit-v2-ci`), whereas the Unity-specific exporter (`UnityPlugin`) uses its own `wasmCodeSplit` (`wasmsplit-ci`)
+  line matched to the UnityWasm SDK version; never mix the two plugin lines.
 - LayaAir: find the WeChat export guide for the detected version through the [official manual](https://layaair.com/).
   Do not infer Cocos settings or Unity SDK behavior for LayaAir.
 
 ## Textures and devices
 
-[Cocos texture guidance](https://docs.cocos.com/creator/3.8/manual/zh/asset/compress-texture.html) includes ASTC,
-device-dependent selection and PNG/JPG fallbacks. DevTools cannot establish ASTC rendering on a phone. Use the engine's
+[Cocos texture guidance](https://docs.cocos.com/creator/3.8/manual/zh/asset/compress-texture.html) and the
+[platform texture compression guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-texture-compression.md)
+cover ASTC, PVRTC and ETC1 (High Performance mode only) on iOS, ASTC, ETC1 and ETC2 on Android, and DXT1/3/5 plus BC4/5/7
+on Windows, Mac and DevTools, with PNG/JPG fallbacks. DevTools cannot establish ASTC rendering on a phone. Use the engine's
 selection mechanism and measure both download size and decoded/GPU memory. Other engines need their own format profile.
 
 For PC targets, include keyboard/mouse, focus transitions, window resize and real WeChat desktop-client checks. The

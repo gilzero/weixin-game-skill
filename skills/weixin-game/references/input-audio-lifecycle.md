@@ -1,6 +1,6 @@
 # Input, audio and lifecycle
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 The starter implements this in `assets/starter/js/platform/input.js`, `audio.js` and `app-services.js`.
 
@@ -81,10 +81,10 @@ The starter defaults to `createAudio({ useWebAudioImplement: false })`. Opt in o
 Pooled effects restart with [`stop()`](https://developers.weixin.qq.com/minigame/dev/api/media/audio/InnerAudioContext.stop.md)
 then `play()`, whose documented behavior restarts from the beginning; client-specific timing still needs phone testing.
 
-On teardown, call `audio.destroy()`, `input.destroy()`, `screen.destroy()` and the disposer returned by `startLoop()`.
+On teardown, call `audio.destroy()`, `input.destroy()`, `screen.destroy()`, the disposer returned by `startLoop()` and,
+when tearing down the whole app, the disposer returned by `installAppServices()`.
 They remove their own global listeners using the matching `off` APIs, clear timers or pending frames, destroy audio
 voices and [close WebAudio](https://developers.weixin.qq.com/minigame/dev/api/media/audio/WebAudioContext.close.md).
-App services are installed once for the lifetime of the game.
 
 A common belief is that WeChat requires a user gesture before audio can play. The audio docs state no such rule, and
 their own sample uses `autoplay`. If audio is silent, look first at the mute switch setting, the file format, the

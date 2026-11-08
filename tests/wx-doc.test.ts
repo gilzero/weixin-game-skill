@@ -17,6 +17,11 @@ cat <<'HTML'
 <a class="nav" href="/minigame/dev/guide/open-ability/ranklist.html"><span>排行榜</span></a>
 <a href="/minigame/dev/guide/open-ability/virtual-payment/guide.html">虚拟支付</a>
 <a href="/minigame/dev/api/ui/menu/wx.getMenuButtonBoundingClientRect.html">wx.getMenuButtonBoundingClientRect</a>
+<a href="/minigame/dev/api/base/system/wx.getWindowInfo.html">wx.getWindowInfo</a>
+<a href="/minigame/dev/guide/base-ability/audio.html">音频</a>
+<a href="/minigame/dev/guide/performance/power-saving-mode.html">温控模式</a>
+<a href="/minigame/dev/api/render/gpu/wx.getGPU.html">undefined</a>
+<a href="/minigame/dev/api/render/gpu/wx.getGPU.html">wx.getGPU</a>
 HTML
 `,
     );
@@ -25,12 +30,17 @@ HTML
       ['排行榜', 'guide/open-ability/ranklist'],
       ['虚拟支付', 'guide/open-ability/virtual-payment/guide'],
       ['胶囊', 'api/ui/menu/wx.getMenuButtonBoundingClientRect'],
+      ['安全区域', 'api/base/system/wx.getWindowInfo'],
+      ['音效', 'guide/base-ability/audio'],
+      ['省电', 'guide/performance/power-saving-mode'],
+      ['getGPU', 'api/render/gpu/wx.getGPU'],
     ]) {
       const run = Bun.spawnSync(['sh', join(skillRoot, 'scripts/wx-doc.sh'), 'find', query ?? ''], {
         env: { ...process.env, TMPDIR: root, PATH: `${bin}:${process.env.PATH}` },
       });
       expect(run.exitCode).toBe(0);
       expect(run.stdout.toString().split('\t')[0]).toBe(path);
+      expect(run.stdout.toString()).not.toContain('undefined');
     }
     const missing = Bun.spawnSync(['sh', join(skillRoot, 'scripts/wx-doc.sh'), 'find', 'no-such-doc'], {
       env: { ...process.env, TMPDIR: root },

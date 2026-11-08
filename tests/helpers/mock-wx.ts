@@ -244,8 +244,11 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     onAudioInterruptionEnd: addListener('interruptionEnd'),
     offAudioInterruptionEnd: removeListener('interruptionEnd'),
     onError: addListener('error'),
+    offError: removeListener('error'),
     onUnhandledRejection: addListener('rejection'),
+    offUnhandledRejection: removeListener('rejection'),
     onMemoryWarning: addListener('memoryWarning'),
+    offMemoryWarning: removeListener('memoryWarning'),
     onWindowResize: addListener('resize'),
     offWindowResize: removeListener('resize'),
     triggerGC() {
@@ -257,6 +260,9 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     onShareAppMessage(listener: () => unknown) {
       wx.shareListener = listener;
     },
+    offShareAppMessage(listener?: () => unknown) {
+      if (!listener || wx.shareListener === listener) wx.shareListener = null;
+    },
     vibrateShort(options: unknown) {
       wx.vibrations.push(options);
     },
@@ -265,6 +271,9 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     getStorageSync: (key: string) => (wx.storage.has(key) ? wx.storage.get(key) : ''),
     setStorageSync(key: string, value: unknown) {
       wx.storage.set(key, value);
+    },
+    removeStorageSync(key: string) {
+      wx.storage.delete(key);
     },
     createInnerAudioContext(options: unknown) {
       const audio: MockAudio = {

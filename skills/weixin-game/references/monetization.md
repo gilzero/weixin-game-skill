@@ -1,6 +1,6 @@
 # Ads and virtual payment
 
-Last verified against the official docs: 2026-11-06. These rules change often, so
+Last verified against the official docs: 2026-11-08. These rules change often, so
 [re-read the live pages](../SKILL.md#keep-this-current) before giving a definite answer.
 
 ## Ads
@@ -12,24 +12,38 @@ program under the same company. Open it in the MP console under 功能, 流量�
 ### Rewarded video
 
 [`wx.createRewardedVideoAd`](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/rewarded-video-ad.md)
-returns a global singleton that loads automatically, so create it early and keep the reference:
+returns a global singleton that loads automatically, so create it early, keep one reference, and tie each show attempt to
+a single consumable reward callback:
 
 ```js
 const rewardedAd = wx.createRewardedVideoAd({ adUnitId: 'your-ad-unit-id' });
+/** @type {(() => void) | null} */
+let pendingReward = null;
+let showingAd = false;
 
 rewardedAd.onError(error => console.error('rewarded ad failed', error));
 
 rewardedAd.onClose(result => {
+  const reward = pendingReward;
+  pendingReward = null;
+  showingAd = false;
   // result is undefined below base library 2.1.0, where the close button only appeared at the end.
-  if ((result && result.isEnded) || result === undefined) grantReward();
+  if (reward && ((result && result.isEnded) || result === undefined)) reward();
 });
 
-function showRewardedAd() {
+function showRewardedAd(onReward = grantReward) {
+  if (showingAd) return;
+  showingAd = true;
+  pendingReward = onReward;
   rewardedAd.show().catch(() =>
     rewardedAd
       .load()
       .then(() => rewardedAd.show())
-      .catch(error => showAdUnavailableMessage(error)),
+      .catch(error => {
+        pendingReward = null;
+        showingAd = false;
+        showAdUnavailableMessage(error);
+      }),
   );
 }
 ```
@@ -79,9 +93,9 @@ The [iOS integration guide](https://developers.weixin.qq.com/community/minigame/
 recommends the signed API for currency too: the legacy `wx.requestMidasPayment` cannot sign its request and is vulnerable
 to client tampering. The `platform` field is deprecated; omit it and let WeChat detect the payment channel.
 
-**Documentation conflict, reviewed 2026-11-06:** the [API table](https://developers.weixin.qq.com/minigame/dev/api/midas-payment/wx.requestMidasPaymentGameItem.md)
-still enumerates only `goods` and `android`. Follow the newer integration guide for `coins`, verify account eligibility
-and the target client before rollout, and retain this discrepancy in the handoff. Do not silence unrelated type errors.
+- Documentation conflict, reviewed 2026-11-08: the [API table](https://developers.weixin.qq.com/minigame/dev/api/midas-payment/wx.requestMidasPaymentGameItem.md)
+  still enumerates only `goods` and `android`. Follow the newer integration guide for `coins`, verify account eligibility
+  and the target client before rollout, and retain this discrepancy in the handoff. Do not silence unrelated type errors.
 
 Generate `signData`, `paySig` and `signature` on the server. Pass the exact signed string to the client unchanged:
 

@@ -74,5 +74,13 @@
   {
     "query": "LayaAir 微信小游戏在 iOS 高性能加模式黑屏，帮我定位。",
     "should_trigger": true
+  },
+  {
+    "query": "我们的微信小游戏想在安卓上用 wx.getGPU 开启 WebGPU 渲染，并且用 wx.getDeviceBenchmarkInfo 按机型档位降帧率，怎么写兼容回退？",
+    "should_trigger": true
+  },
+  {
+    "query": "How do I set up WebGPU compute shaders in a desktop Chrome Three.js app?",
+    "should_trigger": false
   }
 ]

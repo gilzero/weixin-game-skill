@@ -37,7 +37,7 @@ build_index() {
       path = $0; sub(/\.html".*/, "", path)
       sub(/^[^>]*>/, ""); sub(/<\/a>.*/, "")
       gsub(/<[^>]*>/, ""); gsub(/&amp;/, "\\&")
-      print path "\t" $0
+      if ($0 != "" && $0 != "undefined") print path "\t" $0
     }
   ' | sort -u >"$index_rows"
   [ -s "$index_rows" ] || { echo "wx-doc: could not verify the site index from $BASE_URL/$INDEX_PAGE" >&2; exit 2; }
@@ -46,9 +46,18 @@ build_index() {
 
 find_pages() {
   build_index
-  # The API sidebar uses only the English method name for the capsule.
+  # Map common developer terms to the names used in the official sidebar.
   query=$1
-  case "$query" in 胶囊|胶囊按钮) query=getMenuButtonBoundingClientRect ;; esac
+  case "$query" in
+    胶囊|胶囊按钮) query=getMenuButtonBoundingClientRect ;;
+    安全区|安全区域|safeArea|刘海|刘海屏) query=getWindowInfo ;;
+    离屏|离屏画布) query=createCanvas ;;
+    声音|音乐|音效|bgm|BGM) query=音频 ;;
+    震动) query=振动 ;;
+    省电|省电模式|发热|发烫) query=power-saving-mode ;;
+    横屏|竖屏|旋转) query=orientation ;;
+    输入框) query=键盘 ;;
+  esac
   grep -iF -- "$query" "$INDEX_CACHE" || fail "no doc page path or title contains '$1'"
 }
 
@@ -56,7 +65,7 @@ read_page() {
   case "$1" in
     https://developers.weixin.qq.com/minigame/*|https://developers.weixin.qq.com/miniprogram/*) url=$1 ;;
     *://*) fail "only official WeChat documentation URLs are supported" ;;
-    *) page=$(printf '%s' "$1" | sed 's|^/minigame/dev/||'); url="$BASE_URL/$page" ;;
+    *) page=$(printf '%s' "$1" | sed -e 's|^\./||' -e 's|^/*minigame/dev/||'); url="$BASE_URL/$page" ;;
   esac
   url=$(printf '%s' "$url" | sed -e 's|[?#].*$||' -e 's|\.html$||' -e 's|\.md$||').md
   body_file=$(mktemp)

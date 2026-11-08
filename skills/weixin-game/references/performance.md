@@ -1,6 +1,6 @@
 # Performance
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 ## Memory
 
@@ -36,7 +36,12 @@ Track real numbers with the 小游戏数据助手 mini program (数据, 性能�
 - Cache static layers on an extra canvas, then `drawImage` them.
 - Redrawing the whole frame is simple and usually fine. Partial clears only help with a truly static background, and they
   must clear the object's previous position and redraw what was behind it.
-- Lower the frame rate with `wx.setPreferredFramesPerSecond` when a scene does not need 60.
+- Lower the frame rate with `wx.setPreferredFramesPerSecond` when a scene does not need 60. Use
+  [`wx.getDeviceBenchmarkInfo`](https://developers.weixin.qq.com/minigame/dev/api/base/system/wx.getDeviceBenchmarkInfo.md)
+  (3.4.5) and the [benchmark distribution guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-benchmarkLevel.md)
+  to scale quality or frame rate by `benchmarkLevel` (1–50, higher is faster; `-1` means unknown or a new unindexed
+  model, not a low-end phone). Do not use `wx.getDeviceInfo().benchmarkLevel`, which is Android-only and unmaintained
+  since 3.4.5.
 - WebGL scenes that mix in 2D UI can avoid repeated `texImage2D` calls with
   [`wxBindCanvasTexture`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-render-bind.md), which
   is iOS only. Keep the fallback.
@@ -53,6 +58,17 @@ Check the MP rollout settings and runtime mode on the target phone. Performance 
 [iOS Metal](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-ios-metal.md) is an engine/WASM rendering
 path requiring High Performance+, base library 3.10.0 and WeChat 8.0.63. Follow the exporter-specific integration;
 other modes fall back. Do not enable it as a generic Canvas 2D optimization.
+
+[WebGPU](https://developers.weixin.qq.com/minigame/dev/guide/performance/WebGPU.md) is currently Android-only (Android 10+,
+WeChat 8.0.79+, base library 3.17.3+; iOS and HarmonyOS in progress). Call [`wx.getGPU()`](https://developers.weixin.qq.com/minigame/dev/api/render/gpu/wx.getGPU.md)
+and fall back to WebGL when it returns `undefined`. Call `context.configure({ device, format: gpu.getPreferredCanvasFormat() })`
+before creating GPU resources, never combine `webgpu` and `webgl` contexts on the same canvas, and note that shaders are
+WGSL-only without MRT or async pipeline creation (`createRenderPipelineAsync` / `createComputePipelineAsync`).
+
+[iOS thermal mode](https://developers.weixin.qq.com/minigame/dev/guide/performance/power-saving-mode.md) (`温控模式`,
+iPhone XR and newer via the official `MiniGameCommon` plugin's `getPowerModeManager`) reduces compute to roughly 60% to
+cut power by about 10–20% on high-end devices. Mode changes take effect on the next launch (`setLocalMode` plus
+`wx.restartMiniProgram`).
 
 ## Workers
 

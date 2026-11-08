@@ -54,13 +54,14 @@ interface StorageModule {
   createStorage(prefix: string): {
     load<Value>(key: string, fallback: Value): Value;
     save(key: string, value: unknown): boolean;
+    remove(key: string): boolean;
   };
 }
 interface LoopModule {
   startLoop(onFrame: (deltaSeconds: number) => void): () => void;
 }
 interface AppServicesModule {
-  installAppServices(options: { buildShareMessage: () => unknown; onMemoryWarning?: () => void }): void;
+  installAppServices(options: { buildShareMessage: () => unknown; onMemoryWarning?: () => void }): () => void;
 }
 
 const realDateNow = Date.now;
@@ -235,6 +236,16 @@ describe('input', () => {
     const { input } = setUp();
     expect(() => input.on('tapp', () => {})).toThrow('Unknown input event');
   });
+
+  test('restarting the same touch identifier clears the previous long-press timer', async () => {
+    const { wx, counts } = setUp();
+    wx.touch('start', [finger(1)], [finger(1)]);
+    wx.touch('start', [finger(1)], [finger(1)]);
+    wx.touch('end', [finger(1)], []);
+    await sleep(560);
+    expect(counts.longPress).toBe(0);
+    expect(counts.tap).toBe(1);
+  });
 });
 
 describe('audio', () => {
@@ -349,6 +360,21 @@ describe('storage', () => {
     expect(storage.save('best', 1)).toBe(false);
     console.error = consoleError;
   });
+
+  test('removing a key clears it and reports errors instead of throwing', () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    const storage = loadStarter<StorageModule>('js/platform/storage.js').createStorage('game');
+    storage.save('best', 42);
+    expect(storage.remove('best')).toBe(true);
+    expect(storage.load('best', 7)).toBe(7);
+    wx.removeStorageSync = () => {
+      throw new Error('remove failed');
+    };
+    const consoleError = console.error;
+    console.error = () => {};
+    expect(storage.remove('best')).toBe(false);
+    console.error = consoleError;
+  });
 });
 
 describe('loop', () => {
@@ -397,7 +423,7 @@ describe('app services', () => {
   test('a memory warning frees caches and asks for collection', () => {
     const { wx } = installMockWx(devices.notchedIphone);
     let cachesCleared = 0;
-    loadStarter<AppServicesModule>('js/platform/app-services.js').installAppServices({
+    const destroy = loadStarter<AppServicesModule>('js/platform/app-services.js').installAppServices({
       buildShareMessage: () => ({}),
       onMemoryWarning: () => {
         cachesCleared += 1;
@@ -406,6 +432,11 @@ describe('app services', () => {
     wx.fire('memoryWarning', {});
     expect(cachesCleared).toBe(1);
     expect(wx.gcCount).toBe(1);
+    destroy();
+    wx.fire('memoryWarning', {});
+    expect(cachesCleared).toBe(1);
+    expect(wx.shareListener).toBeNull();
+    expect(wx.listenerCount()).toBe(0);
   });
 });
 

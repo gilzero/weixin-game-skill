@@ -1,6 +1,6 @@
 # Platform facts
 
-Last verified against the official docs: 2026-11-06. Re-check anything here with `scripts/wx-doc.sh` before quoting it
+Last verified against the official docs: 2026-11-08. Re-check anything here with `scripts/wx-doc.sh` before quoting it
 in a decision that matters.
 
 ## Limits
@@ -47,6 +47,7 @@ HarmonyOS in DevTools still reports `devtools`, so check `system` there.
 | Wrong or outdated                                | Use instead                                                                        |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `wx.getSystemInfoSync` for new code              | `wx.getWindowInfo`, `wx.getDeviceInfo`, `wx.getAppBaseInfo`, `wx.getSystemSetting` |
+| `wx.getDeviceInfo().benchmarkLevel`              | Android only and unmaintained since 3.4.5. Use `wx.getDeviceBenchmarkInfo`         |
 | `wx.createOffscreenCanvas`                       | Not in the mini game API docs. Call `wx.createCanvas()` again                      |
 | `wx.getUserProfile`                              | Not in the mini game API docs. Use `wx.createUserInfoButton`                       |
 | `ctx.toDataURL()`                                | The method is `canvas.toDataURL()`, and open data contexts restrict it             |

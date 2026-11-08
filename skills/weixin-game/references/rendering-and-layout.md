@@ -1,6 +1,6 @@
 # Rendering and layout
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 The starter implements this in `assets/starter/js/platform/screen.js` and `loop.js`. Use those files unless the project
 has its own engine.
@@ -10,7 +10,9 @@ has its own engine.
 - The [first `wx.createCanvas()`](https://developers.weixin.qq.com/minigame/dev/api/render/canvas/wx.createCanvas.md) is
   the on-screen canvas and every later call is offscreen. A library that calls it first takes the screen.
 - [`getContext`](https://developers.weixin.qq.com/minigame/dev/api/render/canvas/Canvas.getContext.md) accepts `2d`,
-  `webgl`, and `webgl2` from base library 2.24.0.
+  `webgl`, and `webgl2` from base library 2.24.0. On supported Android clients (Android 10+, WeChat 8.0.79+, base library
+  3.17.3+), [WebGPU](https://developers.weixin.qq.com/minigame/dev/guide/performance/WebGPU.md) uses [`wx.getGPU()`](https://developers.weixin.qq.com/minigame/dev/api/render/gpu/wx.getGPU.md)
+  and `canvas.getContext('webgpu')`, which cannot be combined with `webgl` on the same canvas; see [performance](performance.md#runtime-modes).
 - Use extra canvases to cache layers that rarely change, then draw them with `drawImage`. Each one holds a native
   texture until it is garbage collected, so keep only what you need.
 - Enabling an open data context limits what the main canvas can do. See
@@ -109,9 +111,11 @@ const topBarRight = menuButton.left - 8;
 
 Set `deviceOrientation` in
 [`game.json`](https://developers.weixin.qq.com/minigame/dev/reference/configuration/app.md) to `portrait`, `landscape`,
-`landscapeLeft` or `landscapeRight`. For PC and tablet, `desktopDeviceOrientation` and `resizable` apply, and
+`landscapeLeft` or `landscapeRight`. For PC and tablet, `desktopDeviceOrientation`, `resizable` and `displayMode`
+(`mobile`, `pad` or `desktop`) apply, and
 [`wx.onWindowResize`](https://developers.weixin.qq.com/minigame/dev/api/ui/window/wx.onWindowResize.md) reports changes.
-See the [PC adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-adapter.md).
+See the [PC adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-adapter.md); pad and
+non-maximized desktop modes require filling the window without letterbox bars.
 
 ## What the docs leave open
 

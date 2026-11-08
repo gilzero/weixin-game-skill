@@ -1,6 +1,6 @@
 # Login, privacy and release
 
-Last verified against the official docs: 2026-11-06. Compliance rules change, so
+Last verified against the official docs: 2026-11-08. Compliance rules change, so
 [re-read the live pages](../SKILL.md#keep-this-current) before relying on them.
 
 ## Login
@@ -38,12 +38,25 @@ From the [privacy guide](https://developers.weixin.qq.com/minigame/dev/guide/ope
    report the results:
 
 ```js
+/** @type {Set<(choice: {event: 'exposureAuthorization' | 'agree' | 'disagree'}) => void>} */
+const pendingPrivacyResolvers = new Set();
+
+/** @param {'agree' | 'disagree'} event */
+function settlePrivacy(event) {
+  const resolvers = [...pendingPrivacyResolvers];
+  pendingPrivacyResolvers.clear();
+  resolvers.forEach(resolve => resolve({ event }));
+}
+
 wx.onNeedPrivacyAuthorization(resolve => {
+  const wasEmpty = pendingPrivacyResolvers.size === 0;
+  pendingPrivacyResolvers.add(resolve);
+  if (!wasEmpty) return;
   // Report the popup as soon as it is on screen, then report the choice from a real tap.
   showPrivacyDialog({
-    onShown: () => resolve({ event: 'exposureAuthorization' }),
-    onAgree: () => resolve({ event: 'agree' }),
-    onDisagree: () => resolve({ event: 'disagree' }),
+    onShown: () => pendingPrivacyResolvers.forEach(pending => pending({ event: 'exposureAuthorization' })),
+    onAgree: () => settlePrivacy('agree'),
+    onDisagree: () => settlePrivacy('disagree'),
     onOpenPolicy: () => wx.openPrivacyContract({ fail: error => console.error('policy failed', error) }),
   });
 });
@@ -56,7 +69,8 @@ wx.requirePrivacyAuthorize({
 
 - [`wx.onNeedPrivacyAuthorization`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.onNeedPrivacyAuthorization.md)
   and [`wx.requirePrivacyAuthorize`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.requirePrivacyAuthorize.md)
-  need base library 2.32.3.
+  need base library 2.32.3. `wx.onNeedPrivacyAuthorization` is an overwrite listener (a second registration replaces the
+  first), so register it once centrally and coalesce concurrent `resolve` callbacks as shown above.
 - A policy link must open through `wx.openPrivacyContract`.
 - `agree` and `disagree` must follow a real tap.
 - If you register the listener, you must call `resolve`, or the waiting API never finishes.

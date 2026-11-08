@@ -1,6 +1,6 @@
 # Assets and network
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 ## Package strategy
 
@@ -42,6 +42,10 @@ loadTask.onProgressUpdate(result => drawProgress(result.progress));
 
 - The API page marks `success`, `fail` and `complete` as required, so pass all three.
 - `wx.preDownloadSubpackage` (base library 3.4.9) downloads without running, and `wx.loadSubpackage` runs it later.
+- In `game.json`, [`parallelPreloadSubpackages`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start-parallel-download.md)
+  (`[{ "name": "stage1" }]`) downloads listed subpackages in parallel with the main package during cold start on released
+  builds, and [`preloadPackages`](https://developers.weixin.qq.com/minigame/dev/guide/performance/predownload-of-minigame-packages.md)
+  (WeChat 8.0.70+ on iOS and Android) pre-downloads subpackages conditionally by `system` and `query` rules.
 - [Independent subpackages](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/independent-sub-packages.md)
   (2.12.1, 4MB) start without downloading the main package, so a share card can open a leaderboard quickly. Pass their
   path as `path` when sharing.

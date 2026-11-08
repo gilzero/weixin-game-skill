@@ -6,13 +6,14 @@ description: >-
   with game.json, game.js or wx.createCanvas, even if they only ask about one piece: canvas rendering or blurry
   graphics, touch input, audio that stops or won't play, the top-right menu button (胶囊按钮) or safe area, subpackages
   (分包) and package size, friend leaderboards (开放数据域 排行榜), sharing (转发), rewarded ads (激励视频), virtual
-  payment (虚拟支付), privacy compliance, or porting a browser, H5 or Canvas game to WeChat. Not for ordinary WeChat
-  mini programs (小程序) built from WXML pages, Douyin/抖音 games using tt APIs, or web games not targeting WeChat.
-  Includes Cocos, LayaAir and Unity/Tuanjie exports targeting WeChat; preserve their engine workflow.
+  payment (虚拟支付), privacy compliance, WebGPU or High Performance+, device benchmark tiers, or porting a browser,
+  H5 or Canvas game to WeChat. Not for ordinary WeChat mini programs (小程序) built from WXML pages, Douyin/抖音 games
+  using tt APIs, or web games not targeting WeChat. Includes Cocos, LayaAir and Unity/Tuanjie exports targeting WeChat;
+  preserve their engine workflow.
 license: MIT
 metadata:
   version: '2.0.0'
-  docs-verified: '2026-11-06'
+  docs-verified: '2026-11-08'
 ---
 
 # WeChat mini games

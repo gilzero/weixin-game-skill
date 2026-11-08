@@ -28,6 +28,8 @@ function createInput() {
   /** @param {{changedTouches: WechatMinigame.Touch[]}} event */
   function handleStart(event) {
     event.changedTouches.forEach(touch => {
+      const existing = activeTouches.get(touch.identifier);
+      if (existing) forget(existing);
       const touchState = {
         id: touch.identifier,
         startX: touch.clientX,

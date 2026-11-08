@@ -2,7 +2,14 @@ import { expect, test } from 'bun:test';
 import { runInNewContext } from 'node:vm';
 import { collectSnippets } from '../scripts/check-snippets';
 
-function example<T>(reference: string, marker: string, names: string, wx: object, errors: unknown[] = []): T {
+function example<T>(
+  reference: string,
+  marker: string,
+  names: string,
+  wx: object,
+  errors: unknown[] = [],
+  extraGlobals: Record<string, unknown> = {},
+): T {
   const snippet = collectSnippets().find(
     item => item.source.startsWith(`references/${reference}:`) && item.code.includes(marker),
   );
@@ -11,7 +18,9 @@ function example<T>(reference: string, marker: string, names: string, wx: object
     wx,
     Promise,
     Map,
+    Set,
     console: { error: (...args: unknown[]) => errors.push(args) },
+    ...extraGlobals,
   }) as T;
 }
 
@@ -101,10 +110,10 @@ test('cache deduplicates in-flight loads, rejects key collisions and invalid ima
   expect([...cache.files]).toEqual([]);
 });
 
-test('leaderboard reads only after a confirmed write and tolerates corrupt scores', () => {
+test('leaderboard reads only after a confirmed write, coalesces queued scores and tolerates corrupt scores', () => {
   const trace: string[] = [];
   let receive: (message: { type: string; score?: number }) => void = () => {};
-  let write: (ResultCallbacks & { complete(): void }) | undefined;
+  let write: (ResultCallbacks & { complete(): void; KVDataList: { key: string; value: string }[] }) | undefined;
   const errors: unknown[] = [];
   const { readScore } = example<{ readScore(player: object): number }>(
     'social-and-open-data.md',
@@ -115,8 +124,8 @@ test('leaderboard reads only after a confirmed write and tolerates corrupt score
       onMessage: (listener: typeof receive) => {
         receive = listener;
       },
-      setUserCloudStorage: (options: typeof write) => {
-        trace.push('write');
+      setUserCloudStorage: (options: NonNullable<typeof write>) => {
+        trace.push(`write:${options.KVDataList[0]?.value}`);
         write = options;
       },
       getFriendCloudStorage: () => trace.push('read'),
@@ -124,11 +133,16 @@ test('leaderboard reads only after a confirmed write and tolerates corrupt score
     errors,
   );
   receive({ type: 'submitScoreAndShowRanking', score: 12 });
+  receive({ type: 'submitScoreAndShowRanking', score: 25 });
+  receive({ type: 'submitScoreAndShowRanking', score: 18 });
   receive({ type: 'showRanking' });
-  expect(trace).toEqual(['write']);
+  expect(trace).toEqual(['write:{"score":12}']);
   write?.success();
   write?.complete();
-  expect(trace).toEqual(['write', 'read']);
+  expect(trace).toEqual(['write:{"score":12}', 'write:{"score":25}']);
+  write?.success();
+  write?.complete();
+  expect(trace).toEqual(['write:{"score":12}', 'write:{"score":25}', 'read']);
   for (const value of ['bad json', 'null', '{"score":"12"}', '{"score":1e400}'])
     expect(readScore({ KVDataList: [{ key: 'score', value }] })).toBe(0);
   expect(readScore({})).toBe(0);
@@ -155,4 +169,107 @@ test('payment fallback requires documented platform and the selected payment API
       expect(supported).toBe(available && ['android', 'windows', 'ohos'].includes(platform));
     }
   }
+});
+
+test('rewarded video deduplicates taps, consumes the reward once on completion and resets after failure', async () => {
+  let closeListener: ((result?: { isEnded: boolean }) => void) | undefined;
+  let showCalls = 0;
+  let loadCalls = 0;
+  let failShow = false;
+  let failReload = false;
+  let rewards = 0;
+  const unavailable: unknown[] = [];
+  const { showRewardedAd } = example<{ showRewardedAd(onReward?: () => void): void }>(
+    'monetization.md',
+    'function showRewardedAd',
+    'showRewardedAd',
+    {
+      createRewardedVideoAd: () => ({
+        onError() {},
+        onClose(listener: (result?: { isEnded: boolean }) => void) {
+          closeListener = listener;
+        },
+        show() {
+          showCalls += 1;
+          if (failShow) return Promise.reject(new Error('not ready'));
+          return Promise.resolve();
+        },
+        load() {
+          loadCalls += 1;
+          if (failReload) return Promise.reject(new Error('no fill'));
+          failShow = false;
+          return Promise.resolve();
+        },
+      }),
+    },
+    [],
+    {
+      grantReward: () => {
+        rewards += 1;
+      },
+      showAdUnavailableMessage: (error: unknown) => unavailable.push(error),
+    },
+  );
+  showRewardedAd();
+  showRewardedAd();
+  expect(showCalls).toBe(1);
+  closeListener?.({ isEnded: false });
+  closeListener?.({ isEnded: true });
+  expect(rewards).toBe(0);
+
+  failShow = true;
+  showRewardedAd();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(loadCalls).toBe(1);
+  expect(showCalls).toBe(3);
+  closeListener?.({ isEnded: true });
+  closeListener?.({ isEnded: true });
+  expect(rewards).toBe(1);
+
+  failShow = true;
+  failReload = true;
+  showRewardedAd();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(unavailable).toHaveLength(1);
+  failShow = false;
+  failReload = false;
+  showRewardedAd();
+  expect(showCalls).toBe(5);
+});
+
+test('privacy authorization opens one dialog for concurrent requests and resolves all waiting callers', () => {
+  let listener: ((resolve: (choice: { event: string }) => void) => void) | undefined;
+  let dialogActions: { onShown(): void; onAgree(): void; onDisagree(): void; onOpenPolicy(): void } | undefined;
+  let dialogsOpened = 0;
+  example<Record<string, never>>(
+    'privacy-and-release.md',
+    'pendingPrivacyResolvers',
+    '',
+    {
+      onNeedPrivacyAuthorization(callback: (resolve: (choice: { event: string }) => void) => void) {
+        listener = callback;
+      },
+      requirePrivacyAuthorize() {},
+      openPrivacyContract() {},
+    },
+    [],
+    {
+      showPrivacyDialog(actions: NonNullable<typeof dialogActions>) {
+        dialogsOpened += 1;
+        dialogActions = actions;
+      },
+      startFeatureThatUsesPersonalData() {},
+      continueWithoutPersonalData() {},
+    },
+  );
+  const firstEvents: string[] = [];
+  const secondEvents: string[] = [];
+  listener?.(choice => firstEvents.push(choice.event));
+  listener?.(choice => secondEvents.push(choice.event));
+  expect(dialogsOpened).toBe(1);
+  dialogActions?.onShown();
+  dialogActions?.onAgree();
+  expect(firstEvents).toEqual(['exposureAuthorization', 'agree']);
+  expect(secondEvents).toEqual(['exposureAuthorization', 'agree']);
 });

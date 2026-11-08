@@ -1,6 +1,6 @@
 # Agent tooling and backend choices
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 ## DevTools verification
 

@@ -1,6 +1,6 @@
 # Social features and open data
 
-Last verified against the official docs: 2026-11-06.
+Last verified against the official docs: 2026-11-08.
 
 ## Friend leaderboards
 
@@ -72,26 +72,46 @@ function showRanking() {
 }
 
 let pendingWrite = false;
+/** @type {number | null} */
+let queuedScore = null;
+
+/** @param {number} score */
+function writeScore(score) {
+  pendingWrite = true;
+  wx.setUserCloudStorage({
+    KVDataList: [{ key: 'score', value: JSON.stringify({ score }) }],
+    success: () => {
+      if (queuedScore === null) showRanking();
+    },
+    fail: error => console.error('score upload failed', error),
+    complete: () => {
+      pendingWrite = false;
+      if (queuedScore !== null) {
+        const nextScore = queuedScore;
+        queuedScore = null;
+        writeScore(nextScore);
+      }
+    },
+  });
+}
+
 wx.onMessage(message => {
-  if (message.type === 'submitScoreAndShowRanking') {
-    if (pendingWrite || !Number.isFinite(message.score)) return;
-    pendingWrite = true;
-    wx.setUserCloudStorage({
-      KVDataList: [{ key: 'score', value: JSON.stringify({ score: message.score }) }],
-      success: showRanking,
-      fail: error => console.error('score upload failed', error),
-      complete: () => {
-        pendingWrite = false;
-      },
-    });
+  if (message.type === 'submitScoreAndShowRanking' && Number.isFinite(message.score)) {
+    if (pendingWrite) {
+      queuedScore = queuedScore === null ? message.score : Math.max(queuedScore, message.score);
+      return;
+    }
+    writeScore(message.score);
   }
   if (message.type === 'showRanking' && !pendingWrite) showRanking();
 });
 ```
 
-Submission and refresh are one operation: the read begins only after the write succeeds. This minimal example ignores
-new submissions while a write is pending; queue the newest score if the game can produce scores during that interval.
-Do not infer completion ordering from message ordering.
+Submission and refresh are one operation: the read begins only after the write succeeds, and scores submitted while a
+write is in flight coalesce to the highest pending value. Do not infer completion ordering from message ordering. For
+anti-cheat protection, set `"disableSetUserStorageFromMiniProgram": true` in
+[`game.json`](https://developers.weixin.qq.com/minigame/dev/reference/configuration/app.md) and write scores from your
+server instead.
 
 Things that catch people out:
 
@@ -142,7 +162,9 @@ wx.shareAppMessage({ title: '我通关了第 5 关', query: 'from=share&level=5'
 ```
 
 - Documented parameters are `title`, `imageUrl`, `query`, `imageUrlId`, `toCurrentGroup` and `path`. There is no `toGroup`
-  and no `success` or `fail` callback, so the game cannot know whether a share happened. Do not design rewards around it.
+  and no `success` or `fail` callback, so the game cannot know whether a share happened. Do not design rewards around it;
+  for verified friend gifting or interaction incentives, use [interactive friend data](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/interactive-data.md)
+  (`wx.modifyFriendInteractiveStorage`, `wx.getUserInteractiveStorage` and JSServer verification).
 - `shareTimeline` is [marked beta and Android only](https://developers.weixin.qq.com/minigame/dev/api/share/wx.showShareMenu.md),
   and requires `shareAppMessage` to be shown as well.
 - Images use a 5:4 ratio. With no image, WeChat uses a screenshot of the game.
