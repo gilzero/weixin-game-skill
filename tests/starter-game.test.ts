@@ -119,7 +119,7 @@ describe('whole game in the mock runtime', () => {
     tapAt(wx, target.x, target.y);
     renderFrame(frames, ctx);
     labelPosition(ctx, '得分 10');
-    expect(wx.vibrations).toEqual([{ type: 'light' }]);
+    expect(wx.vibrations).toMatchObject([{ type: 'light' }]);
 
     for (let elapsed = 0; elapsed < 21; elapsed += 0.1) renderFrame(frames, ctx, 0.1);
     labelPosition(ctx, '本局 10 分');
@@ -150,6 +150,35 @@ describe('whole game in the mock runtime', () => {
     const { wx } = bootGame(devices.notchedIphone);
     expect(wx.shareMenu).toHaveLength(1);
     expect(wx.shareListener?.()).toMatchObject({ query: 'from=share' });
+  });
+
+  test('unsupported vibration fails once with a callback and disables further calls', () => {
+    const mock = installMockWx(devices.notchedIphone);
+    let vibrateAttempts = 0;
+    mock.wx.vibrateShort = (options: { fail?: (error: { errMsg: string }) => void }) => {
+      vibrateAttempts += 1;
+      if (!options.fail) throw new Error('missing fail callback would reject unhandled');
+      options.fail({ errMsg: 'vibrateShort:fail style is not support' });
+    };
+    const warnings: unknown[][] = [];
+    const previousWarn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    try {
+      const { wx, frames, ctx } = bootGame(devices.notchedIphone, mock);
+      renderFrame(frames, ctx);
+      const startButton = labelPosition(ctx, '开始');
+      tapAt(wx, startButton.x, startButton.y);
+      renderFrame(frames, ctx);
+      const firstTarget = ctx.circles[0] as { x: number; y: number };
+      tapAt(wx, firstTarget.x, firstTarget.y);
+      renderFrame(frames, ctx);
+      const secondTarget = ctx.circles[0] as { x: number; y: number };
+      tapAt(wx, secondTarget.x, secondTarget.y);
+      expect(vibrateAttempts).toBe(1);
+      expect(warnings).toHaveLength(1);
+    } finally {
+      console.warn = previousWarn;
+    }
   });
 
   for (const [name, device] of Object.entries(devices) as [string, Device][]) {

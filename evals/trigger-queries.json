@@ -82,5 +82,17 @@
   {
     "query": "How do I set up WebGPU compute shaders in a desktop Chrome Three.js app?",
     "should_trigger": false
+  },
+  {
+    "query": "微信小游戏里 wx.createBannerAd 提示停止维护了，怎么改成 wx.createCustomAd 原生模板广告并兼容鸿蒙 ohos？",
+    "should_trigger": true
+  },
+  {
+    "query": "Our WeChat mini game needs WXWebAssembly inside a Worker and keyboard/mouse input for PC desktop mode.",
+    "should_trigger": true
+  },
+  {
+    "query": "鸿蒙 HarmonyOS Next 原生 ArkTS 应用怎么接入华为 IAP 应用内支付？",
+    "should_trigger": false
   }
 ]

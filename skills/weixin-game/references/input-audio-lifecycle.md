@@ -1,6 +1,6 @@
 # Input, audio and lifecycle
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 The starter implements this in `assets/starter/js/platform/input.js`, `audio.js` and `app-services.js`.
 
@@ -26,10 +26,57 @@ Three bugs come from getting this wrong:
 - Reading `touches` on start re-reports fingers already down, which resets their state and leaves timers running.
 - Sending cancel through the end path counts a system interruption as a tap.
 
-Also release all tracked touches on `wx.onHide`, because the matching end event can be lost. On Windows and Mac these
-events are translated from the mouse. For text entry use
-[`wx.showKeyboard`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.showKeyboard.md), since there are
-no input elements.
+Also release all tracked touches on `wx.onHide`, because the matching end event can be lost. On Windows and Mac primary
+clicks are translated to touch events, while desktop-specific controls use dedicated listeners:
+
+```js
+function bindDesktopInput() {
+  /** @type {Set<string>} */
+  const keysDown = new Set();
+  /** @type {WechatMinigame.OnKeyDownCallback} */
+  const onKeyDown = event => {
+    keysDown.add(event.code);
+  };
+  /** @type {WechatMinigame.OnKeyUpCallback} */
+  const onKeyUp = event => {
+    keysDown.delete(event.code);
+  };
+  /** @type {WechatMinigame.OnMouseDownCallback} */
+  const onMouseDown = event => {
+    if (event.button === 2) handleRightClick(event.x, event.y);
+  };
+  /** @type {WechatMinigame.OnWheelCallback} */
+  const onWheel = event => zoomCamera(event.deltaY, event.x, event.y);
+  const clearKeys = () => keysDown.clear();
+  if (wx.onKeyDown) wx.onKeyDown(onKeyDown);
+  if (wx.onKeyUp) wx.onKeyUp(onKeyUp);
+  if (wx.onMouseDown) wx.onMouseDown(onMouseDown);
+  if (wx.onWheel) wx.onWheel(onWheel);
+  wx.onHide(clearKeys);
+  return {
+    keysDown,
+    destroy() {
+      if (wx.offKeyDown) wx.offKeyDown(onKeyDown);
+      if (wx.offKeyUp) wx.offKeyUp(onKeyUp);
+      if (wx.offMouseDown) wx.offMouseDown(onMouseDown);
+      if (wx.offWheel) wx.offWheel(onWheel);
+      wx.offHide(clearKeys);
+      clearKeys();
+    },
+  };
+}
+```
+
+- [`wx.onKeyDown`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.onKeyDown.md) and
+  [`wx.onKeyUp`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.onKeyUp.md) (base library 3.6.0, PC
+  only) only fire while the window is in the foreground and after at least one user interaction such as a click. System
+  shortcuts take precedence. Clear held keys on `wx.onHide`.
+- [`wx.onMouseDown`](https://developers.weixin.qq.com/minigame/dev/api/device/mouse-event/wx.onMouseDown.md) (`button`: `0`
+  left, `1` middle, `2` right) and [`wx.onWheel`](https://developers.weixin.qq.com/minigame/dev/api/device/wheel-event/wx.onWheel.md)
+  (`deltaX`, `deltaY`, `deltaZ`) report logical window coordinates.
+- For text entry use
+  [`wx.showKeyboard`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.showKeyboard.md), since there
+  are no input elements.
 
 ## Choosing an audio API
 
@@ -103,13 +150,20 @@ their own sample uses `autoplay`. If audio is silent, look first at the mute swi
 - [Requests still running 5 seconds after hiding fail](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/network.md)
   with `fail interrupted`, so retry them on return.
 
-## Errors
+## Errors and Promise-style `wx` calls
 
 Register [`wx.onError`](https://developers.weixin.qq.com/minigame/dev/api/base/app/app-event/wx.onError.md) and
 [`wx.onUnhandledRejection`](https://developers.weixin.qq.com/minigame/dev/api/base/app/app-event/wx.onUnhandledRejection.md)
 early, or failures on players' phones leave no trace. On a phone, console output shows in
 [vConsole](https://developers.weixin.qq.com/minigame/dev/guide/runtime/debug/vConsole.md), which cannot print `undefined`,
 functions, `ArrayBuffer` or objects with circular references.
+
+From base library 2.10.2, [async `wx` APIs return a `Promise`](https://developers.weixin.qq.com/miniprogram/dev/framework/app-service/api.md)
+whenever the options object omits `success`, `fail` and `complete` (task-returning APIs such as `request`, `downloadFile`,
+`uploadFile` and `connectSocket` excluded). Calling optional capabilities such as `wx.vibrateShort({ type: 'light' })` or
+`wx.showShareMenu(...)` with no `fail` callback or `.catch()` triggers `Uncaught (in promise)` and `wx.onUnhandledRejection`
+on PC, Mac or devices without haptics. Always pass `fail` (or handle `.catch`) on fire-and-forget `wx` calls, as the
+starter does.
 
 ## Compatibility
 

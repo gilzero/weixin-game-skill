@@ -1,6 +1,6 @@
 # Login, privacy and release
 
-Last verified against the official docs: 2026-11-08. Compliance rules change, so
+Last verified against the official docs: 2026-11-09. Compliance rules change, so
 [re-read the live pages](../SKILL.md#keep-this-current) before relying on them.
 
 ## Login
@@ -90,6 +90,19 @@ checks and a pending/rejected state. Read the linked backend API docs for the se
 server. Privacy consent does not substitute for content moderation. Provide review/report handling where the feature
 needs it; a fixed set of built-in names and avatars avoids accepting arbitrary content in a simple prototype.
 
+## HarmonyOS (`ohos`)
+
+From the [HarmonyOS adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md):
+
+- Supported from base library **3.7.0** (JS runs on V8). Detect `wx.getDeviceInfo().platform === 'ohos'` (or `'ohos_pc'`);
+  in DevTools simulation `platform` remains `'devtools'` while `wx.getDeviceInfo().system === 'HarmonyOS'`.
+- Guard native modules that the HarmonyOS guide lists as unsupported: memory warnings (`wx.onMemoryWarning`), motion
+  sensors (accelerometer, compass, gyroscope, device motion), camera, microphone recording, video decoder, gamepad,
+  customer service (`wx.openCustomerServiceConversation`), Channels (`视频号`), GameRecorder and device network events.
+- Individual API headers may update ahead of the overview table (for example, `wx.createCustomAd` marks HarmonyOS
+  supported from WeChat 3.16.3 while the overview still marks `广告` unsupported). Always use runtime capability and
+  rejection guards rather than OS-only assumptions, and test on a HarmonyOS Next phone.
+
 ## Updates
 
 [Published versions reach players within about 24 hours](https://developers.weixin.qq.com/minigame/dev/guide/runtime/update-mechanism.md),
@@ -114,20 +127,24 @@ from `onUpdateReady`, as the starter does. For a required update, raise the mini
 - [ ] A weak or failed network shows a message and a retry rather than hanging.
 - [ ] A long session on a low-end iPhone survives without a memory crash.
 - [ ] Audio obeys the mute switch as intended.
+- [ ] Every visible interactive button responds (no dead or placeholder "under construction" buttons), and native template
+      ads stay clear of `safeArea` insets.
 
 **Platform and compliance**
 
 - [ ] [Version review and mini program filing](https://developers.weixin.qq.com/minigame/introduction/guide/index.md)
-      (小程序备案) are complete. Company entities must complete WeChat certification before filing.
+      (小程序备案) are complete, with exact entity and game-name parity across MP, filing and software copyright (`软著`).
+      Company entities must complete WeChat certification before filing.
 - [ ] Plan for the guide's estimated 13–37 working days for IAA or 9–22 for IAP; these are estimates, not release SLAs.
-- [ ] For iOS payment, the MP agreement, signed orders, reconciliation and refund handling are verified.
+- [ ] IAP stores clearly display virtual-currency exchange ratios; for iOS payment, the MP agreement, signed orders,
+      reconciliation and refund handling are verified.
 - [ ] Any public user content passes the applicable security checks.
 
-- [ ] The privacy policy is filled in and matches what the game collects.
-- [ ] `wx.onError` and `wx.onUnhandledRejection` are registered.
+- [ ] The privacy policy is filled in, accessible via `wx.openPrivacyContract`, and matches what the game collects.
+- [ ] `wx.onError` and `wx.onUnhandledRejection` are registered, and optional async `wx` calls handle `fail`/`.catch`.
 - [ ] Payments deliver from the server, and the store follows `wx.checkIsSupportMidasPayment` on every platform.
-- [ ] HarmonyOS (`ohos`) is [checked](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md) if you
-      use native features it may not support yet.
+- [ ] HarmonyOS (`ohos`) is [checked](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md) against
+      unsupported native modules and runtime guards.
 - [ ] Category and licence requirements are confirmed in the MP console. They depend on the game and change over time, so
       this skill does not list them.
 

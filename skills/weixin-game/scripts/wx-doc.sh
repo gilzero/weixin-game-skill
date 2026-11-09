@@ -54,9 +54,19 @@ find_pages() {
     离屏|离屏画布) query=createCanvas ;;
     声音|音乐|音效|bgm|BGM) query=音频 ;;
     震动) query=振动 ;;
-    省电|省电模式|发热|发烫) query=power-saving-mode ;;
+    省电|省电模式|温控|发热|发烫) query=power-saving-mode ;;
     横屏|竖屏|旋转) query=orientation ;;
     输入框) query=键盘 ;;
+    harmony|harmonyos|HarmonyOS) query=ohos ;;
+    leaderboard|ranking) query=ranklist ;;
+    iap|IAP|内购|充值) query=virtual-payment ;;
+    格子广告|模板广告) query=custom-ad ;;
+    性能评分|评分) query=perf-audit ;;
+    反作弊) query=antiadcheat ;;
+    wasm|WASM)
+      grep -iE -- 'wasm|webassembly' "$INDEX_CACHE" || fail "no doc page path or title contains '$1'"
+      return 0
+      ;;
   esac
   grep -iF -- "$query" "$INDEX_CACHE" || fail "no doc page path or title contains '$1'"
 }
@@ -76,7 +86,7 @@ read_page() {
     404|410) fail "HTTP $status for $url (try: wx-doc.sh find <part of the name>)" ;;
     *) echo "wx-doc: evidence unavailable: HTTP $status for $url" >&2; exit 2 ;;
   esac
-  if ! grep -Eq '^#{1,6} +[^ ]' "$body_file" || grep -Eiq '<!doctype html|<html[ >]|site unavailable|service unavailable|access denied|captcha' "$body_file"; then
+  if ! grep -Eq '^#{1,6} +[^ ]' "$body_file" || grep -Eiq '<!doctype html|<html[ >]|site unavailable|service unavailable|access denied|captcha|访问过于频繁' "$body_file"; then
     echo "wx-doc: evidence unavailable: expected Markdown documentation at $url" >&2
     exit 2
   fi

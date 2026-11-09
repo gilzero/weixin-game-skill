@@ -88,8 +88,12 @@ skills/weixin-game/
 ```
 
 The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch, audio interruptions,
-storage, sharing, error breadcrumbs and update prompts. Timed rounds use foreground elapsed time separately from simulation steps. Replace `js/game/` with your game.
-Platform services expose cleanup hooks, resize notifications run after layout updates, and landscape uses a side HUD.
+storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` callbacks. Timed rounds track foreground elapsed time separately from simulation steps; platform services expose cleanup hooks, and landscape uses a side HUD. Replace `js/game/` with your game.
+
+## Changelog
+
+- **2.1.0 (2026-11-09):** Replaced unmaintained `wx.createBannerAd` (3.5.5) guidance with `wx.createCustomAd` and documented its HarmonyOS conflict; added rewarded-ad SSV (`setServerSideVerificationData`, 3.10.3), `WXWebAssembly` package/Worker rules, HarmonyOS (`ohos`, 3.7.0) module matrix, PC desktop input/layout/ASTC rules, weak-network (`wx.onNetworkWeakChange`), HTTPDNS, cold-start pre-fetch, 1GB disk expansion, startup (`wx.reportScene`) vs runtime (`wx.getScenePerformanceManager`) scene telemetry, private share verification, bilingual `wx-doc.sh` aliases, and Promise-rejection callback guards in the starter.
+- **2.0.0:** Rebuilt as an installable multi-agent skill and Claude plugin with starter platform modules, snippet type-checking and live documentation drift detection.
 
 ## Staying current
 
@@ -97,11 +101,10 @@ Platform services expose cleanup hooks, resize notifications run after layout up
   the agent to check them, and `scripts/wx-doc.sh` makes that one command.
 - **Every reference is dated.** Each file states when it was last checked against the docs.
 - **Selected assertions detect drift.** `bun run check:docs` checks registered facts, official Markdown links, API names
-  and guide-sidebar additions/removals. Payment checks include the newer community article and its API-table conflict.
-  Exit 1 means changed assertions; exit 2 means evidence unavailable, including HTTP-200 error pages. The weekly action
-  distinguishes these outcomes. Review dates record a baseline, not proof that every statement is checked automatically.
+  and guide-sidebar changes, including payment and HarmonyOS documentation conflicts. Exit 1 means changed assertions;
+  exit 2 means evidence unavailable (including HTTP-200 error or rate-limit pages), which the weekly workflow separates.
 - **Examples are checked.** Typed application contracts replace blanket missing-name suppression. Behavioral tests
-  exercise cache failures, leaderboard ordering, payment fallback and slow-frame countdowns.
+  exercise cache failures, leaderboard ordering, `CustomAd` placement, desktop input, payment fallback and slow-frame countdowns.
 
 ## What's been tested
 
@@ -129,21 +132,15 @@ bun run eval        # dry run: shows case and API call counts
 ```
 
 To run API evaluations, set `OPENAI_API_KEY`, `EVAL_MODEL` and optionally `EVAL_JUDGE_MODEL`, then run
-`bun run eval --run --suite tasks --limit 1`. Use `--suite triggers` for description relevance, or omit `--suite` for both.
-`--mode skill|baseline|both` controls task comparisons. Each task variant makes two API calls; each trigger makes one.
-The runner uses [Responses structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), saves
-artifacts and evidence under gitignored `eval-results/`, and exits 1 for failed expectations/syntax or 2
-for incomplete execution. It supplies skill resources as context and never executes generated code, so it measures
-answer quality, not actual file copying, progressive loading, host activation or phone behavior. Review model grades.
-Fixtures cover existing native and engine projects. Reports include skill/suite/fixture hashes, model versions and run
-count; generated JS/TS/JSON receives syntax checks without execution. Offline tests pass; no live scores for these new cases.
+`bun run eval --run --suite tasks --limit 1` (`--suite triggers` tests description relevance; `--mode skill|baseline|both`
+selects task variants; two API calls per task variant, one per trigger). The runner uses
+[Responses structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), writes artifacts under
+gitignored `eval-results/`, syntax-checks generated JS/TS/JSON without executing it, and exits 1 on failed expectations
+or 2 on incomplete execution. Review model grades; offline tests pass without live scores for newer cases.
 
 See [AGENTS.md](AGENTS.md) for how the repo is organised and how to update a fact.
 
 ## Credits and license
 
 Based on [wukaikailive/weixin-game-skill](https://github.com/wukaikailive/weixin-game-skill). [MIT](LICENSE).
-
-WeChat and 微信 are trademarks of Tencent. This is an independent project and is not affiliated with Tencent.
-
-update_20261106_142702_HKT_cat_blackhole_🐱🕳️
+WeChat and 微信 are trademarks of Tencent; this independent project is not affiliated with Tencent.

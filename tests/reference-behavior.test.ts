@@ -273,3 +273,92 @@ test('privacy authorization opens one dialog for concurrent requests and resolve
   expect(firstEvents).toEqual(['exposureAuthorization', 'agree']);
   expect(secondEvents).toEqual(['exposureAuthorization', 'agree']);
 });
+
+test('custom ad placement clears safeArea bottom without mutating width on resize and destroys cleanly', async () => {
+  let resizeListener: ((size: { width: number; height: number }) => void) | undefined;
+  let offResizeCount = 0;
+  let destroyed = 0;
+  let createdOptions:
+    { adIntervals: number; style: { left: number; top: number; width: number; fixed: boolean } } | undefined;
+  const errors: unknown[] = [];
+  const { mountBottomCustomAd } = example<{ mountBottomCustomAd(adUnitId: string): () => void }>(
+    'monetization.md',
+    'function mountBottomCustomAd',
+    'mountBottomCustomAd',
+    {
+      getWindowInfo: () => ({
+        windowWidth: 390,
+        windowHeight: 844,
+        safeArea: { left: 0, top: 47, right: 390, bottom: 810, width: 390, height: 763 },
+      }),
+      createCustomAd(options: NonNullable<typeof createdOptions>) {
+        createdOptions = options;
+        return {
+          style: { ...options.style },
+          onResize(listener: NonNullable<typeof resizeListener>) {
+            resizeListener = listener;
+          },
+          offResize() {
+            offResizeCount += 1;
+          },
+          onError() {},
+          show: () => Promise.reject(new Error('no fill')),
+          destroy() {
+            destroyed += 1;
+          },
+        };
+      },
+    },
+    errors,
+    { Math },
+  );
+  const unmount = mountBottomCustomAd('adunit-test');
+  expect(createdOptions?.adIntervals).toBeGreaterThanOrEqual(30);
+  expect(createdOptions?.style).toEqual({ left: 15, top: 710, width: 360, fixed: false });
+  resizeListener?.({ width: 320, height: 92 });
+  await Promise.resolve();
+  expect(errors).toHaveLength(1);
+  unmount();
+  expect(offResizeCount).toBe(1);
+  expect(destroyed).toBe(1);
+});
+
+test('desktop input tracks held keys, clears them on hide and detaches listeners on destroy', () => {
+  const listeners = new Map<string, (payload: unknown) => void>();
+  const rightClicks: [number, number][] = [];
+  const wheels: [number, number, number][] = [];
+  const { bindDesktopInput } = example<{ bindDesktopInput(): { keysDown: Set<string>; destroy(): void } }>(
+    'input-audio-lifecycle.md',
+    'function bindDesktopInput',
+    'bindDesktopInput',
+    {
+      onKeyDown: (cb: (e: unknown) => void) => listeners.set('keyDown', cb),
+      offKeyDown: (cb: (e: unknown) => void) => listeners.get('keyDown') === cb && listeners.delete('keyDown'),
+      onKeyUp: (cb: (e: unknown) => void) => listeners.set('keyUp', cb),
+      offKeyUp: (cb: (e: unknown) => void) => listeners.get('keyUp') === cb && listeners.delete('keyUp'),
+      onMouseDown: (cb: (e: unknown) => void) => listeners.set('mouseDown', cb),
+      offMouseDown: (cb: (e: unknown) => void) => listeners.get('mouseDown') === cb && listeners.delete('mouseDown'),
+      onWheel: (cb: (e: unknown) => void) => listeners.set('wheel', cb),
+      offWheel: (cb: (e: unknown) => void) => listeners.get('wheel') === cb && listeners.delete('wheel'),
+      onHide: (cb: (e: unknown) => void) => listeners.set('hide', cb),
+      offHide: (cb: (e: unknown) => void) => listeners.get('hide') === cb && listeners.delete('hide'),
+    },
+    [],
+    {
+      handleRightClick: (x: number, y: number) => rightClicks.push([x, y]),
+      zoomCamera: (dy: number, x: number, y: number) => wheels.push([dy, x, y]),
+    },
+  );
+  const desktop = bindDesktopInput();
+  listeners.get('keyDown')?.({ code: 'KeyW' });
+  expect([...desktop.keysDown]).toEqual(['KeyW']);
+  listeners.get('hide')?.({});
+  expect([...desktop.keysDown]).toEqual([]);
+  listeners.get('mouseDown')?.({ button: 0, x: 10, y: 20 });
+  listeners.get('mouseDown')?.({ button: 2, x: 30, y: 40 });
+  listeners.get('wheel')?.({ deltaY: -120, x: 50, y: 60 });
+  expect(rightClicks).toEqual([[30, 40]]);
+  expect(wheels).toEqual([[-120, 50, 60]]);
+  desktop.destroy();
+  expect(listeners.size).toBe(0);
+});

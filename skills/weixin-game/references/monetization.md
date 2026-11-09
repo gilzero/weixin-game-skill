@@ -1,6 +1,6 @@
 # Ads and virtual payment
 
-Last verified against the official docs: 2026-11-08. These rules change often, so
+Last verified against the official docs: 2026-11-09. These rules change often, so
 [re-read the live pages](../SKILL.md#keep-this-current) before giving a definite answer.
 
 ## Ads
@@ -52,9 +52,13 @@ function showRewardedAd(onReward = grantReward) {
 - Viewing is limited per user per day. Handle failure kindly and keep the game playable, rather than showing a button
   that does nothing.
 - The ad draws above the canvas. Pause the game and audio while it shows.
-- For rewards worth protecting, add the server check described in the guide (激励广告反作弊).
-- From 3.7.7, error 1004 can show a fallback share page instead of an ad. A launch `query` containing
-  `wxad_fallback_share=1` identifies these visits.
+- Pass `multiton: true` (2.8.0) only when distinct placements need independent instances. From 3.7.7, error 1004 can show
+  a fallback share page (`wxad_fallback_share=1` in launch `query`) unless `disableFallbackSharePage: true` is set.
+- For high-value rewards, enable [server-side verification](https://developers.weixin.qq.com/minigame/dev/guide/security/antiadcheat.md)
+  (激励广告反作弊, base library 3.10.3): before `show()`, guard `if (rewardedAd.setServerSideVerificationData)` and pass
+  `{ userId, rewardItem, rewardAmount, customData }`. Verify the `sha256` signature on your server, decrypt `encrypt`
+  (`AES-256-CBC` with `Base64Decode(EncodingAESKey + '=')` and the 16-byte IV prefix after URL-decoding), deduplicate
+  `transaction_id`, and return `{"is_valid": true}` within **1 second** (3 retries at 15s, 22.5s and 33.75s).
 
 For reusable integrations, keep one active show attempt tied to a specific gameplay action. Ignore repeated taps until
 close/failure, consume that attempt before granting a reward, and ignore duplicate or late callbacks. Pause on show;
@@ -62,12 +66,49 @@ resume on close and terminal load/show failure only if the scene is still active
 listeners on scene disposal, and invalidate its pending attempt. The short example above only demonstrates API calls;
 it is not that complete interaction controller.
 
-### Banner and interstitial
+### Native template ads (CustomAd), interstitials and retired banners
 
-- [Banners](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/banner-ad.md) take `style.left`, `top` and
-  `width`. Width clamps from 300 to the screen width and height follows, so place them from `onResize` using
-  `style.realHeight`. Never set a different width inside `onResize`, which can loop forever.
-- Keep banners clear of `safeArea.bottom` and of your own buttons. They sit above the canvas.
+[`wx.createBannerAd`](https://developers.weixin.qq.com/minigame/dev/api/ad/wx.createBannerAd.md) has been **unmaintained
+since base library 3.5.5**. Use [`wx.createCustomAd`](https://developers.weixin.qq.com/minigame/dev/api/ad/wx.createCustomAd.md)
+(base library 2.11.1, [guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/custom-ad.md)) for
+banner-like, grid or matrix overlays:
+
+```js
+/** @param {string} adUnitId */
+function mountBottomCustomAd(adUnitId) {
+  const { windowWidth, windowHeight, safeArea } = wx.getWindowInfo();
+  const safeBottom = safeArea ? safeArea.bottom : windowHeight;
+  const width = Math.min(360, windowWidth);
+  const left = Math.round((windowWidth - width) / 2);
+  const customAd = wx.createCustomAd({
+    adUnitId,
+    adIntervals: 30,
+    style: { left, top: safeBottom - 100, width, fixed: false },
+  });
+  /** @param {{width: number, height: number}} size */
+  const handleResize = size => {
+    customAd.style.left = Math.round((windowWidth - size.width) / 2);
+    customAd.style.top = safeBottom - size.height - 8;
+  };
+  customAd.onResize(handleResize);
+  customAd.onError(error => console.error('custom ad failed', error));
+  customAd.show().catch(error => console.error('custom ad unavailable', error));
+  return () => {
+    customAd.offResize(handleResize);
+    customAd.destroy();
+  };
+}
+```
+
+- Each `wx.createCustomAd` call returns a **new instance** that starts hidden; call `show()` (returns a `Promise`) and
+  `hide()` across scenes, and call `destroy()` when disposing a scene so listeners do not leak.
+- `adIntervals` must be `>= 30` seconds; `style.fixed` applies only to mini programs. Never overlap `safeArea` insets or
+  system home indicators, which is a common review rejection. Do not mutate `style.width` inside `onResize`.
+- Documentation conflict, reviewed 2026-11-09: `wx.createCustomAd` states HarmonyOS support from WeChat 3.16.3, whereas
+  the [HarmonyOS guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md) still lists `广告` as
+  unsupported. Guard creation and `show()` rejections at runtime on `ohos`.
+- Legacy [banners](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/banner-ad.md) clamp `style.width`
+  between 300 and screen width and report `style.realHeight` in `onResize`.
 - [Interstitials](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/interstitialAd-ad.md) use
   `wx.createInterstitialAd`. `show()` rejects when loading fails or a frequency limit applies, so always handle rejection.
 

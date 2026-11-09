@@ -1,6 +1,6 @@
 # Assets and network
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 ## Package strategy
 
@@ -9,7 +9,8 @@ frequently changing assets from a CDN after launch. [All packages together are c
 
 Only [whitelisted file extensions](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/code-package.md)
 upload. Others load fine in DevTools and then go missing from the uploaded package, which is an easy way to ship a broken
-build. `webp` is not on the list, so check the page when adding a new asset type.
+build. `wasm` and `br` (Brotli, e.g. `.wasm.br`) are whitelisted, whereas `webp` is not; `*.js` and `game.json` are
+compiled and cannot be read as raw files after upload.
 
 ## Subpackages
 
@@ -121,10 +122,23 @@ currently running version. Engine projects should use their engine cache instead
 From the [file system guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/file-system.md):
 
 - Temporary files only last for the current run, so never store a temporary path for next time.
-- `wx.env.USER_DATA_PATH` is the only directory you can freely write to. Cached and user files share a 200MB limit.
+- `wx.env.USER_DATA_PATH` is the only directory you can freely write to. Cached and user files share a 200MB limit; a
+  qualifying game can apply for **1GB** in MP (`功能 → 游戏能力地图 → 研发能力 → 生产提效包 → 空间提升`,
+  [disk space guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/diskspace.md)), but low device
+  storage evicts caches at **whole-game granularity**.
 - Do not hardcode local file protocols. They differ between phones (`wxfile://`) and DevTools (`http://`).
 - Package files cannot be changed at runtime, and paths must not start with `./` or `../`.
 - Version your cached file names, or players keep stale assets after an update.
+
+## Cold-start data pre-fetch
+
+[Data pre-fetch](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/pre-fetch.md) (`开发管理 → 开发设置 → 数据预加载`)
+fetches a string payload of at most **256KB** while the cold-start package downloads. Individual accounts only support
+CloudBase; business accounts support HTTPS or CloudBase. A rollout percentage cannot be lowered once raised (`0%` tests
+developers/experiencers only). Read with [`wx.getBackgroundFetchData`](https://developers.weixin.qq.com/minigame/dev/api/storage/background-fetch/wx.getBackgroundFetchData.md)
+(`{ fetchType: 'pre' }`) plus [`wx.onBackgroundFetchData`](https://developers.weixin.qq.com/minigame/dev/api/storage/background-fetch/wx.onBackgroundFetchData.md),
+and optionally set [`wx.setBackgroundFetchToken`](https://developers.weixin.qq.com/minigame/dev/api/storage/background-fetch/wx.setBackgroundFetchToken.md)
+after login.
 
 ## Local storage
 
@@ -157,3 +171,17 @@ From the [network guide](https://developers.weixin.qq.com/minigame/dev/guide/bas
 For network features, bound retries with backoff and cancel owned tasks on scene disposal. Retry reads safely; retry
 mutations only with server idempotency keys. Treat background interruption and reconnect as explicit states, and surface
 terminal failures rather than retrying forever.
+
+### Weak network and HTTPDNS
+
+- Detect weak networks with [`wx.onNetworkWeakChange`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.onNetworkWeakChange.md)
+  (base library 2.21.0, `{ weakNet, networkType }`; remove with `wx.offNetworkWeakChange`) to pause non-essential polling
+  or warn the player. Do **not** call `wx.createCacheManager` from the shared
+  [weak-network guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/weak-network.md): it is a mini
+  program API absent from the mini game API index.
+- [HTTPDNS](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/HTTPDNS.md) (2.19.2, purchased in WeChat
+  Service Market) avoids carrier Local DNS hijacking via `wx.request({ url, enableHttpDNS: true, httpDNSServiceId })`.
+  Check [`wx.getNetworkType`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.getNetworkType.md)
+  (`res.hasSystemProxy`, WeChat 8.0.17+) and disable `enableHttpDNS` when a system proxy is active to avoid
+  `ERR_PROXY_CONNECTION_FAILED` (`errno: 600001`) on older runtimes. When quota reaches zero (`errno: 602103`), WeChat
+  falls back to Local DNS.

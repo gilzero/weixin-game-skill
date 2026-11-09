@@ -5,6 +5,8 @@ declare function beginTouch(id: number, x: number, y: number): void;
 declare function moveTouch(id: number, x: number, y: number): void;
 declare function endTouch(id: number): void;
 declare function cancelTouch(id: number): void;
+declare function handleRightClick(x: number, y: number): void;
+declare function zoomCamera(deltaY: number, x: number, y: number): void;
 declare const music: WechatMinigame.InnerAudioContext;
 declare let interrupted: boolean;
 declare let wantsMusic: boolean;

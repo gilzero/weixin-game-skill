@@ -21,6 +21,8 @@ installAppServices({
 
 screen.onResize(layout => game.setBounds(layout.content));
 
+let canVibrate = Boolean(wx.vibrateShort);
+
 input.on('tap', ({ x, y }) => {
   if (game.phase !== 'playing') {
     if (isInsideRect(startButtonRect(screen), x, y)) game.start();
@@ -28,7 +30,16 @@ input.on('tap', ({ x, y }) => {
   }
   if (game.tap(x, y)) {
     audio.beep();
-    wx.vibrateShort({ type: 'light' });
+    if (canVibrate) {
+      // Async wx calls without callbacks return a Promise and trigger onUnhandledRejection when unsupported.
+      wx.vibrateShort({
+        type: 'light',
+        fail(error) {
+          canVibrate = false;
+          console.warn('haptics unavailable, disabling vibrateShort', error);
+        },
+      });
+    }
   }
 });
 

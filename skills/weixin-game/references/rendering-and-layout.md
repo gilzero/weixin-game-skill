@@ -1,6 +1,6 @@
 # Rendering and layout
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 The starter implements this in `assets/starter/js/platform/screen.js` and `loop.js`. Use those files unless the project
 has its own engine.
@@ -114,8 +114,13 @@ Set `deviceOrientation` in
 `landscapeLeft` or `landscapeRight`. For PC and tablet, `desktopDeviceOrientation`, `resizable` and `displayMode`
 (`mobile`, `pad` or `desktop`) apply, and
 [`wx.onWindowResize`](https://developers.weixin.qq.com/minigame/dev/api/ui/window/wx.onWindowResize.md) reports changes.
-See the [PC adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-adapter.md); pad and
-non-maximized desktop modes require filling the window without letterbox bars.
+See the [PC adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-adapter.md) (base
+library 2.26.1+; Windows supported, Mac planned):
+
+- Unadapted games lock to `414x736` (`mobile`). `pad` locks to `1024x768`, and `desktop` defaults to `1024x768` with
+  proportional window resizing and maximize/restore controls in the capsule.
+- Review rejects black bars or letterbox overlays in `pad` mode, in non-maximized `desktop` mode, and in **maximized
+  landscape `desktop` games**. Only maximized portrait `desktop` games may show side bars or overlays.
 
 ## What the docs leave open
 

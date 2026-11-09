@@ -1,6 +1,6 @@
 # Social features and open data
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 ## Friend leaderboards
 
@@ -127,6 +127,8 @@ Things that catch people out:
   path across.
 - Layout helpers: the official [minigame-canvas-engine](https://github.com/wechat-miniprogram/minigame-canvas-engine) is
   recommended in the [leaderboard guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ranklist.md).
+- For group rankings inside the open data context, [`wx.getGroupCloudStorage`](https://developers.weixin.qq.com/minigame/dev/api/open-api/data/wx.getGroupCloudStorage.md)
+  accepts either `shareTicket` or (from 3.8.8, preferred) `groupid` obtained in the main game via `wx.getGroupEnterInfo`.
 
 ### Restrictions once it is enabled
 
@@ -170,6 +172,13 @@ wx.shareAppMessage({ title: '我通关了第 5 关', query: 'from=share&level=5'
 - Images use a 5:4 ratio. With no image, WeChat uses a screenshot of the game.
 - `query` must be `key1=val1&key2=val2`. Read it back from `wx.getLaunchOptionsSync()` or `wx.onShow()`.
 - The menu listener can return a `promise` (2.12.0). WeChat waits up to 3 seconds before using the other fields.
+- To verify whether a visitor opened a specific direct or group share card without allowing secondary re-forwarding, use
+  [private messages](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/share/private-message.md): create an
+  `activityId` on the server (`createActivityId`, shareable for 7 days, verifiable for 120 days), declare
+  `wx.updateShareMenu({ withShareTicket: true, isPrivateMessage: true, activityId })`, and after `wx.login` call
+  [`wx.authPrivateMessage`](https://developers.weixin.qq.com/minigame/dev/api/share/wx.authPrivateMessage.md) with the
+  launch `shareTicket`. Always decrypt `encryptedData` + `iv` on the server to match `activityId`; do not trust client
+  `res.valid` alone.
 
 ## User profile
 

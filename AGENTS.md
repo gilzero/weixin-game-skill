@@ -77,8 +77,16 @@ To cite an API as absent from the docs, add it to `API_NAMES_NOT_IN_INDEX`. The 
 
 ## Releasing
 
-Bump `version` in `.claude-plugin/plugin.json`, `metadata.version` in `SKILL.md` and `package.json` together. A test keeps
-all three in step. Claude Code only offers an update when the plugin version changes.
+Bump `version` in `.claude-plugin/plugin.json`, `metadata.version` in `SKILL.md` and `package.json` together, and record a
+brief change summary in [README.md](README.md#changelog) and below (keeping both `README.md` and `AGENTS.md` within 150
+lines). A test keeps all three version fields in step. Claude Code only offers an update when the plugin version changes.
+
+- **Current version (`2.1.0`, `docs-verified: 2026-11-09`):** Added `wx.createCustomAd` (replacing unmaintained
+  `wx.createBannerAd` 3.5.5) + HarmonyOS conflict tracking, rewarded-ad SSV (`3.10.3`), `WXWebAssembly` package/Worker
+  constraints, HarmonyOS (`ohos` `3.7.0`) unsupported-module matrix, PC desktop input/layout/ASTC rules, weak-network
+  (`wx.onNetworkWeakChange`) + `wx.createCacheManager` absence guard, HTTPDNS + pre-fetch + 1GB storage notes,
+  `wx.reportScene` vs `wx.getScenePerformanceManager` telemetry, private share verification, bilingual `wx-doc.sh`
+  aliases, and starter Promise-rejection callback guards.
 
 ## Known gaps
 

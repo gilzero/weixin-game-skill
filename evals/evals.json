@@ -162,6 +162,35 @@
         "Includes version review and filing before release without promising approval timing",
         "Does not claim DevTools phone or live payment validation"
       ]
+    },
+    {
+      "id": 11,
+      "name": "custom-ad-ssv-and-ohos",
+      "prompt": "我们要给微信小游戏做商业化和鸿蒙（HarmonyOS Next）兼容：1）底部放一个横幅广告，之前想用 wx.createBannerAd；2）激励视频发高价值钻石，怕外挂跳过广告白嫖，想加官方服务端校验；3）同时上鸿蒙端。请输出 outputs/ads.js 和 outputs/notes.md，说明 API 选择、服务端校验超时/去重规则和鸿蒙端文档差异。",
+      "expected_output": "Uses wx.createCustomAd instead of unmaintained BannerAd, wires setServerSideVerificationData with 1s idempotent callback notes, and guards HarmonyOS discrepancies.",
+      "files": [],
+      "expectations": [
+        "States wx.createBannerAd is unmaintained since 3.5.5 and uses wx.createCustomAd instead",
+        "Keeps CustomAd clear of safeArea bottom, avoids mutating width inside onResize, and calls destroy on teardown",
+        "Guards setServerSideVerificationData before rewardedAd.show and notes base library 3.10.3+",
+        "Notes the 1-second server callback timeout and deduplication by transaction_id",
+        "Notes HarmonyOS support starts at base library 3.7.0 and flags the conflict between wx.createCustomAd (3.16.3+) and the ohos overview table",
+        "Uses runtime guards and error handling rather than assuming ads always succeed on ohos"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "wasm-and-pc-desktop",
+      "prompt": "We are porting a landscape H5 physics game to WeChat mini games (including Windows PC desktop mode). Right now we load physics.wasm inside workers/sim.js using `WebAssembly.instantiate(uint8Array, imports)` with `workers/physics.wasm`, and we ship ASTC-only textures with letterbox bars when maximized on PC. Write outputs/game.json, outputs/pc-input.js (WASD + right-click + mouse wheel, cleaned up on hide/destroy) and outputs/notes.md explaining every platform bug in our current plan.",
+      "expected_output": "Replaces WebAssembly with WXWebAssembly package path outside workers/, fixes maximized landscape PC letterboxing and ASTC software decode, and handles PC input lifecycle.",
+      "files": [],
+      "expectations": [
+        "Replaces browser WebAssembly with WXWebAssembly.instantiate using a code-package path (.wasm or .wasm.br) rather than bytes",
+        "Warns that the workers directory packs only .js files so .wasm must sit outside workers/",
+        "Explains maximized landscape desktop games must not show black bars or letterbox overlays",
+        "Warns that PC GPUs lack hardware ASTC decoding so ASTC-only packages cause CPU software-decode jank",
+        "Uses wx.onKeyDown/wx.onKeyUp (3.6.0+, foreground after user interaction), wx.onMouseDown (button 2) and wx.onWheel, clearing held keys on wx.onHide and detaching on destroy"
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Engine projects and runtime profiles
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 ## Detect before editing
 
@@ -38,14 +38,24 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
   line matched to the UnityWasm SDK version; never mix the two plugin lines.
 - LayaAir: find the WeChat export guide for the detected version through the [official manual](https://layaair.com/).
   Do not infer Cocos settings or Unity SDK behavior for LayaAir.
+- [Game engine plugins](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/game-engine-plugin.md): Creator
+  and LayaAir exporters can separate shared engine libraries into a cached WeChat client plugin (`plugins` in `game.json`
+  plus `plugin.json`/`signature.json` and `requirePlugin`), supported for whole-package games and the main package of
+  subpackaged games. Re-export from the IDE rather than hand-editing plugin files, which invalidates `signature.json` MD5s.
+- [Playable trials](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/playable/dev.md) (`小游戏试玩`): an
+  independent lightweight project and AppID (iOS/Android WeChat 8.0.50+, base library 3.5.4+; no PC or Mac) with its own
+  `wx` subset and release flow. Custom engine adapters may require stubs for missing `wx` APIs, and on-phone vConsole is
+  toggled via `wx.setEnableDebug` rather than the top-right menu.
 
 ## Textures and devices
 
 [Cocos texture guidance](https://docs.cocos.com/creator/3.8/manual/zh/asset/compress-texture.html) and the
 [platform texture compression guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-texture-compression.md)
 cover ASTC, PVRTC and ETC1 (High Performance mode only) on iOS, ASTC, ETC1 and ETC2 on Android, and DXT1/3/5 plus BC4/5/7
-on Windows, Mac and DevTools, with PNG/JPG fallbacks. DevTools cannot establish ASTC rendering on a phone. Use the engine's
-selection mechanism and measure both download size and decoded/GPU memory. Other engines need their own format profile.
+on Windows, Mac and DevTools, with PNG/JPG fallbacks. DevTools cannot establish ASTC rendering on a phone, and shipping
+ASTC-only packages to PC/Mac forces expensive CPU software decoding; see [PC performance](performance.md#runtime-modes).
+Use the engine's selection mechanism and measure both download size and decoded/GPU memory. Other engines need their own
+format profile.
 
 For PC targets, include keyboard/mouse, focus transitions, window resize and real WeChat desktop-client checks. The
 [PC guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-game.md) covers eligibility and incentives;

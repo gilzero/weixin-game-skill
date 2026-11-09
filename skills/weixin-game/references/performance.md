@@ -1,6 +1,6 @@
 # Performance
 
-Last verified against the official docs: 2026-11-08.
+Last verified against the official docs: 2026-11-09.
 
 ## Memory
 
@@ -70,6 +70,25 @@ iPhone XR and newer via the official `MiniGameCommon` plugin's `getPowerModeMana
 cut power by about 10–20% on high-end devices. Mode changes take effect on the next launch (`setLocalMode` plus
 `wx.restartMiniProgram`).
 
+For [PC mini games](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-performance.md), desktop GPUs do
+not decode mobile ASTC textures in hardware: shipping ASTC-only packages forces per-frame CPU software decompression and
+causes severe `jank`/`bigjank` spikes, so provide DXT/BC or PNG/JPG textures on PC. Avoid high-frequency synchronous file
+I/O and mobile disk-streaming workarounds (such as Unity `WXAssetBundle`) on PC, where file I/O latency is higher and
+mobile memory ceilings do not apply, and remove unnecessary mobile 30 FPS thermal caps.
+
+## WXWebAssembly
+
+Mini games expose global [`WXWebAssembly`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-webassembly.md)
+(base library 2.13.0 on the main thread, 2.15.0 in Workers, 2.18.1 in plugins; SIMD from WeChat 8.0.25) rather than
+browser `WebAssembly`:
+
+- `WXWebAssembly.instantiate(path, imports)` accepts **only a code-package path** to `.wasm` or Brotli-compressed
+  `.wasm.br` (2.14.0+), never an `ArrayBuffer` or `Uint8Array`.
+- When instantiating inside a Worker, place `.wasm` / `.wasm.br` files **outside** the `workers` directory, because
+  `workers` packs only `.js` files and ignores everything else.
+- Exports support functions, `Memory` and `Table`; iOS does not yet support exported `WXWebAssembly.Global`. Split large
+  modules across subpackages or compress with `.wasm.br` to stay within package limits.
+
 ## Workers
 
 The example and restrictions below apply to the **original Worker**, not Worker V2 or engine SDK threading.
@@ -125,7 +144,7 @@ It supports multiple workers, transferred OffscreenCanvas, SharedArrayBuffer and
 for the chosen runtime. A transferred canvas must no longer be drawn by the main thread. Engine SDK multithreading is
 another path: confirm engine/exporter versions and use [engine documentation](engines.md) before mixing facilities.
 
-## Startup
+## Startup, scene telemetry and performance rating
 
 Measure cold-start time, first playable frame, frame-time percentiles and memory growth on a named device matrix.
 Use the [startup guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start.md):
@@ -133,3 +152,15 @@ Use the [startup guide](https://developers.weixin.qq.com/minigame/dev/guide/perf
 - Draw something on the very first frame, and show progress during any wait.
 - Keep the main package small and load the rest from subpackages or a CDN.
 - Avoid heavy synchronous work in `game.js` before that first frame.
+- Use [`wx.reportScene`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start-reportScene.md)
+  (2.26.2) **only during startup** (`<= 60s` total elapsed, once per `sceneId` per launch; system `sceneId: 7` marks the
+  first interactive frame `游戏可交互`). `dimension` values must be non-empty strings and `metric` values numeric strings,
+  each serialized `<= 1024` characters.
+- Use [`wx.getScenePerformanceManager`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-runtime-reportPerformanceScene.md)
+  (3.11.0) during gameplay to tag active scenes (`setData({ sceneId, sceneData })`, `setCommonInfo`) so FPS, jank and
+  memory samples aggregate by scene (lobby vs boss fight). `setData` is rate-limited on the client to **at most 5 calls
+  per 30 seconds** (never call per frame), both `setCommonInfo` and `setData` overwrite rather than merge, `sceneData`
+  should stay `<= 1024` characters, and high-cardinality IDs (user IDs, timestamps, room IDs) should be omitted.
+- Enable [performance monitoring](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-audit/perf-system-overview.md)
+  (`大盘性能监控`) in MP to track category-specific startup, runtime and network scores (scores `< 90` surface targeted
+  remediation; quick-adaptation games default to medium-core unless updated).

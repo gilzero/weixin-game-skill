@@ -27,7 +27,7 @@ function watchMemory(onMemoryWarning) {
   if (!wx.onMemoryWarning) return () => {};
   const handleMemoryWarning = () => {
     onMemoryWarning();
-    wx.triggerGC();
+    if (wx.triggerGC) wx.triggerGC();
   };
   wx.onMemoryWarning(handleMemoryWarning);
   return () => {
@@ -38,7 +38,10 @@ function watchMemory(onMemoryWarning) {
 // The share entry in the menu stays disabled until showShareMenu is called.
 /** @param {WechatMinigame.OnShareAppMessageCallback} buildShareMessage */
 function enableSharing(buildShareMessage) {
-  wx.showShareMenu({ menus: ['shareAppMessage'] });
+  wx.showShareMenu({
+    menus: ['shareAppMessage'],
+    fail: error => console.error('share menu failed', error),
+  });
   wx.onShareAppMessage(buildShareMessage);
   return () => {
     if (wx.offShareAppMessage) wx.offShareAppMessage(buildShareMessage);
@@ -55,6 +58,7 @@ function promptForUpdates() {
       success(result) {
         if (result.confirm) updateManager.applyUpdate();
       },
+      fail: error => console.error('update modal failed', error),
     });
   });
   updateManager.onUpdateFailed(() => console.error('update download failed'));

@@ -438,6 +438,26 @@ describe('app services', () => {
     expect(wx.shareListener).toBeNull();
     expect(wx.listenerCount()).toBe(0);
   });
+
+  test('share menu and memory warnings guard optional or failing platform calls', () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    wx.triggerGC = undefined;
+    let shareMenuHasFail = false;
+    wx.showShareMenu = (options: { fail?: (error: unknown) => void }) => {
+      shareMenuHasFail = typeof options.fail === 'function';
+    };
+    let cachesCleared = 0;
+    const destroy = loadStarter<AppServicesModule>('js/platform/app-services.js').installAppServices({
+      buildShareMessage: () => ({}),
+      onMemoryWarning: () => {
+        cachesCleared += 1;
+      },
+    });
+    wx.fire('memoryWarning', {});
+    expect(shareMenuHasFail).toBe(true);
+    expect(cachesCleared).toBe(1);
+    destroy();
+  });
 });
 
 describe('platform teardown and audio state', () => {

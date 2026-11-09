@@ -20,6 +20,10 @@ cat <<'HTML'
 <a href="/minigame/dev/api/base/system/wx.getWindowInfo.html">wx.getWindowInfo</a>
 <a href="/minigame/dev/guide/base-ability/audio.html">音频</a>
 <a href="/minigame/dev/guide/performance/power-saving-mode.html">温控模式</a>
+<a href="/minigame/dev/guide/open-ability/ohos.html">鸿蒙OS适配指南</a>
+<a href="/minigame/dev/guide/open-ability/ad/custom-ad.html">原生模板广告</a>
+<a href="/minigame/dev/guide/performance/perf-audit/perf-system-overview.html">大盘性能监控</a>
+<a href="/minigame/dev/guide/performance/perf-webassembly.html">使用WXWebAssembly</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">undefined</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">wx.getGPU</a>
 HTML
@@ -28,7 +32,13 @@ HTML
     chmodSync(curl, 0o755);
     for (const [query, path] of [
       ['排行榜', 'guide/open-ability/ranklist'],
+      ['leaderboard', 'guide/open-ability/ranklist'],
       ['虚拟支付', 'guide/open-ability/virtual-payment/guide'],
+      ['内购', 'guide/open-ability/virtual-payment/guide'],
+      ['harmonyos', 'guide/open-ability/ohos'],
+      ['格子广告', 'guide/open-ability/ad/custom-ad'],
+      ['性能评分', 'guide/performance/perf-audit/perf-system-overview'],
+      ['wasm', 'guide/performance/perf-webassembly'],
       ['胶囊', 'api/ui/menu/wx.getMenuButtonBoundingClientRect'],
       ['安全区域', 'api/base/system/wx.getWindowInfo'],
       ['音效', 'guide/base-ability/audio'],
@@ -66,7 +76,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 if [ "$DOC_MODE" = timeout ]; then exit 28; fi
-if [ "$DOC_MODE" = valid ]; then printf '## A real page\\nDocument body\\n' > "$output"; else printf '<html>Site Unavailable</html>' > "$output"; fi
+if [ "$DOC_MODE" = valid ]; then printf '## A real page\\nDocument body\\n' > "$output"; elif [ "$DOC_MODE" = throttled ]; then printf '## Notice\\n访问过于频繁，请稍后再试\\n' > "$output"; else printf '<html>Site Unavailable</html>' > "$output"; fi
 printf '%s' "$DOC_STATUS"
 `,
     );
@@ -74,6 +84,7 @@ printf '%s' "$DOC_STATUS"
     for (const [mode, status, exit] of [
       ['valid', '200', 0],
       ['error', '200', 2],
+      ['throttled', '200', 2],
       ['error', '429', 2],
       ['error', '503', 2],
       ['error', '404', 1],
