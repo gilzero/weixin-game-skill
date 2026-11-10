@@ -362,3 +362,111 @@ test('desktop input tracks held keys, clears them on hide and detaches listeners
   desktop.destroy();
   expect(listeners.size).toBe(0);
 });
+
+test('socket example registers every listener before the connection can open and reports close codes', () => {
+  const registered: string[] = [];
+  const sent: string[] = [];
+  const messages: unknown[] = [];
+  const closeCodes: number[] = [];
+  const handlers: Record<string, (payload?: unknown) => void> = {};
+  const errors: unknown[] = [];
+  const { openGameSocket } = example<{ openGameSocket(url: string): unknown }>(
+    'assets-and-network.md',
+    'function openGameSocket',
+    'openGameSocket',
+    {
+      connectSocket: () => {
+        const listen = (name: string) => (callback: (payload?: unknown) => void) => {
+          registered.push(name);
+          handlers[name] = callback;
+        };
+        return {
+          onOpen: listen('open'),
+          onMessage: listen('message'),
+          onError: listen('error'),
+          onClose: listen('close'),
+          send: ({ data }: { data: string }) => sent.push(data),
+        };
+      },
+    },
+    errors,
+    {
+      JSON,
+      handleServerMessage: (data: unknown) => messages.push(data),
+      scheduleReconnect: (code: number) => closeCodes.push(code),
+    },
+  );
+  openGameSocket('wss://example.invalid/game');
+  expect(registered).toEqual(['open', 'message', 'error', 'close']);
+  expect(sent).toEqual([]);
+  handlers.open?.();
+  expect(sent).toEqual(['{"type":"hello"}']);
+  handlers.message?.({ data: 'state' });
+  handlers.error?.({ errMsg: 'TLS handshake failed' });
+  handlers.close?.({ code: 1006 });
+  expect(messages).toEqual(['state']);
+  expect(errors).toHaveLength(1);
+  expect(closeCodes).toEqual([1006]);
+});
+
+test('poster example shares only an exported local file and reports export failures', () => {
+  const shared: string[] = [];
+  const errors: unknown[] = [];
+  const { sharePoster } = example<{
+    sharePoster(canvas: { toTempFilePath(options: Record<string, (result: unknown) => void>): void }): void;
+  }>(
+    'social-and-open-data.md',
+    'function sharePoster',
+    'sharePoster',
+    { showShareImageMenu: (options: { path: string; style?: string }) => shared.push(options.path) },
+    errors,
+  );
+  sharePoster({ toTempFilePath: options => options.success?.({ tempFilePath: 'wxfile://tmp/poster.png' }) });
+  expect(shared).toEqual(['wxfile://tmp/poster.png']);
+  sharePoster({ toTempFilePath: options => options.fail?.(new Error('export failed')) });
+  expect(shared).toHaveLength(1);
+  expect(errors).toHaveLength(1);
+});
+
+test('recommend example tolerates old clients, shows only after loading and surfaces load failures', async () => {
+  interface RecommendEntry {
+    show(): Promise<unknown>;
+    destroy(): void;
+  }
+  const errors: unknown[] = [];
+  const calls: string[] = [];
+  let failLoad = false;
+  const modern = {
+    createPageManager: () => ({
+      load: ({ openlink }: { openlink: string }) => {
+        calls.push(`load:${openlink}`);
+        return failLoad ? Promise.reject(new Error('-8')) : Promise.resolve({});
+      },
+      show: () => {
+        calls.push('show');
+        return Promise.resolve({});
+      },
+      destroy: () => calls.push('destroy'),
+    }),
+  };
+  const load = (wx: object) =>
+    example<{ createRecommendEntry(openlink: string): RecommendEntry | null }>(
+      'social-and-open-data.md',
+      'function createRecommendEntry',
+      'createRecommendEntry',
+      wx,
+      errors,
+    ).createRecommendEntry;
+
+  expect(load({})('link')).toBeNull();
+  const entry = load(modern)('link');
+  await entry?.show();
+  entry?.destroy();
+  expect(calls).toEqual(['load:link', 'show', 'destroy']);
+
+  failLoad = true;
+  calls.length = 0;
+  await load(modern)('stale-link')?.show();
+  expect(calls).toEqual(['load:stale-link']);
+  expect(errors.length).toBeGreaterThanOrEqual(1);
+});

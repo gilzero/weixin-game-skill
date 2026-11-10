@@ -1,6 +1,6 @@
 # Login, privacy and release
 
-Last verified against the official docs: 2026-11-09. Compliance rules change, so
+Last verified against the official docs: 2026-11-10. Compliance rules change, so
 [re-read the live pages](../SKILL.md#keep-this-current) before relying on them.
 
 ## Login
@@ -24,6 +24,17 @@ can replace `session_key`.
 Reuse your application session until it expires; coalesce concurrent refresh attempts and refresh WeChat login only when
 needed. Keep application-token expiry separate from the WeChat session key. For teams without a backend, see
 [backend choices](tooling-and-backend.md#backend-work).
+
+- `wx.login`, [`wx.checkSession`](https://developers.weixin.qq.com/minigame/dev/api/open-api/login/wx.checkSession.md),
+  `wx.getSetting` and `wx.getUserInfo` are [rate-limited](https://developers.weixin.qq.com/minigame/dev/guide/performance/api-frequency.md):
+  each may total at most twice the game's daily PV, and games over the limit receive a platform notice. Call them once at launch and
+  cache the result; never call them from a timer, the frame loop or every `wx.onShow`.
+- `wx.checkSession` only checks the `session_key` behind the **most recent** code. Anything that fetches a code,
+  including [data pre-fetch](assets-and-network.md#cold-start-data-pre-fetch), can replace it, so validate a specific
+  key on the server when it matters.
+- `unionid` comes back from `code2Session` without extra authorization once the game is bound to a WeChat Open Platform
+  account ([UnionID](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/union-id.md)); do not ask the
+  player for profile permission just to identify them across your apps.
 
 ## Privacy
 
@@ -110,6 +121,17 @@ and a cold start can still run the old cached version while the new one download
 [`wx.getUpdateManager`](https://developers.weixin.qq.com/minigame/dev/api/base/update/wx.getUpdateManager.md) and prompt
 from `onUpdateReady`, as the starter does. For a required update, raise the minimum available version in the MP console.
 
+- **Staged release:** after review, 提交发布 can release [to a percentage or to a whitelist](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/code-beta.md)
+  of at most 100 WeChat IDs. A staged release cannot be withdrawn, so treat it as shipping. For features hidden from
+  most players, the guide recommends a separate test server keyed by OpenID instead.
+- **Source maps:** keep each `.map` file beside its source (`game.js.map` next to `game.js`). DevTools uploads them for
+  the error analysis under WE分析, 性能质量, JS分析;
+  [they do not count toward package size](https://developers.weixin.qq.com/minigame/dev/guide/runtime/debug/SourceMap.md)
+  and are not shipped in trial or released packages. Engine builds must
+  [enable source map output](https://developers.weixin.qq.com/minigame/dev/guide/performance/monitor.md) in the exporter.
+- **Update reminders:** subscribers are told about a new version only when update phrases were chosen at submission.
+  See [subscription messages](social-and-open-data.md#subscription-messages).
+
 ## Before release
 
 **Project**
@@ -142,6 +164,8 @@ from `onUpdateReady`, as the starter does. For a required update, raise the mini
 
 - [ ] The privacy policy is filled in, accessible via `wx.openPrivacyContract`, and matches what the game collects.
 - [ ] `wx.onError` and `wx.onUnhandledRejection` are registered, and optional async `wx` calls handle `fail`/`.catch`.
+- [ ] Subscription, navigation and settings prompts fire from `wx.onTouchEnd`, and no `wx.login` or `wx.getSetting`
+      call repeats on a timer.
 - [ ] Payments deliver from the server, and the store follows `wx.checkIsSupportMidasPayment` on every platform.
 - [ ] HarmonyOS (`ohos`) is [checked](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md) against
       unsupported native modules and runtime guards.

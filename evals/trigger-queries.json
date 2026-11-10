@@ -94,5 +94,17 @@
   {
     "query": "鸿蒙 HarmonyOS Next 原生 ArkTS 应用怎么接入华为 IAP 应用内支付？",
     "should_trigger": false
+  },
+  {
+    "query": "小游戏里点按钮调 wx.requestSubscribeSystemMessage 一直报 can only be invoked by user TAP gesture，怎么回事？另外想做个海报分享到朋友圈",
+    "should_trigger": true
+  },
+  {
+    "query": "How do I tell that a player opened my WeChat mini game from the desktop icon or a group share card? I only have game.js and wx.getLaunchOptionsSync.",
+    "should_trigger": true
+  },
+  {
+    "query": "微信小程序（WXML 页面）里用 miniprogram-ci 在 GitHub Actions 自动上传体验版，project.config.json 怎么配？",
+    "should_trigger": false
   }
 ]

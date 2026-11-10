@@ -47,3 +47,5 @@ declare const boardHeight: number;
 declare const boardX: number;
 declare const boardY: number;
 declare const pixelRatio: number;
+declare function handleServerMessage(data: string | ArrayBuffer): void;
+declare function scheduleReconnect(closeCode: number): void;

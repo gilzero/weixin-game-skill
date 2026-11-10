@@ -24,6 +24,9 @@ cat <<'HTML'
 <a href="/minigame/dev/guide/open-ability/ad/custom-ad.html">原生模板广告</a>
 <a href="/minigame/dev/guide/performance/perf-audit/perf-system-overview.html">大盘性能监控</a>
 <a href="/minigame/dev/guide/performance/perf-webassembly.html">使用WXWebAssembly</a>
+<a href="/minigame/dev/guide/open-ability/share/share-image.html">海报分享</a>
+<a href="/minigame/dev/guide/base-ability/scene.html">场景值</a>
+<a href="/minigame/dev/guide/base-ability/code-beta.html">游戏灰度</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">undefined</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">wx.getGPU</a>
 HTML
@@ -44,6 +47,11 @@ HTML
       ['音效', 'guide/base-ability/audio'],
       ['省电', 'guide/performance/power-saving-mode'],
       ['getGPU', 'api/render/gpu/wx.getGPU'],
+      ['poster', 'guide/open-ability/share/share-image'],
+      ['scene', 'guide/base-ability/scene'],
+      ['灰度发布', 'guide/base-ability/code-beta'],
+      ['tap-gated', 'guide/base-ability/touch-limit'],
+      ['限频', 'guide/performance/api-frequency'],
     ]) {
       const run = Bun.spawnSync(['sh', join(skillRoot, 'scripts/wx-doc.sh'), 'find', query ?? ''], {
         env: { ...process.env, TMPDIR: root, PATH: `${bin}:${process.env.PATH}` },
@@ -76,13 +84,14 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 if [ "$DOC_MODE" = timeout ]; then exit 28; fi
-if [ "$DOC_MODE" = valid ]; then printf '## A real page\\nDocument body\\n' > "$output"; elif [ "$DOC_MODE" = throttled ]; then printf '## Notice\\n访问过于频繁，请稍后再试\\n' > "$output"; else printf '<html>Site Unavailable</html>' > "$output"; fi
+if [ "$DOC_MODE" = valid ]; then printf '## A real page\\nDocument body\\n' > "$output"; elif [ "$DOC_MODE" = setext ]; then printf 'Scene list\\n==========\\n\\n| 1023 | desktop |\\n' > "$output"; elif [ "$DOC_MODE" = throttled ]; then printf '## Notice\\n访问过于频繁，请稍后再试\\n' > "$output"; else printf '<html>Site Unavailable</html>' > "$output"; fi
 printf '%s' "$DOC_STATUS"
 `,
     );
     chmodSync(curl, 0o755);
     for (const [mode, status, exit] of [
       ['valid', '200', 0],
+      ['setext', '200', 0],
       ['error', '200', 2],
       ['throttled', '200', 2],
       ['error', '429', 2],

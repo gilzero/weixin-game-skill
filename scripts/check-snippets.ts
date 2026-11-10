@@ -74,7 +74,7 @@ export function checkSnippets(
     const readFile = host.readFile;
     host.readFile = path => {
       const source = readFile(path);
-      // 3.8.21 contradicts live examples for the privacy resolver and signed payment string.
+      // 3.8.22 still contradicts live examples for the privacy resolver and signed payment string.
       return path.endsWith('/types/wx/lib.wx.api.d.ts')
         ? source
             ?.replace(

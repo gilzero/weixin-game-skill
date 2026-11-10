@@ -66,6 +66,7 @@ Describe a WeChat mini game task; the agent can select the skill automatically o
 Add a friends leaderboard to my WeChat mini game
 这个 canvas 在真机上很模糊，右上角按钮还挡住了分数
 Our game is 6MB and won't upload. How do we split it?
+订阅按钮一点就报 can only be invoked by user TAP gesture
 ```
 
 For a new native JavaScript game it copies a starter project you can open straight away in
@@ -79,32 +80,33 @@ The optional official `wechatide` skill can assist verification, but its game su
 ```text
 skills/weixin-game/
 ├── SKILL.md              Core rules and where to go next
-├── references/           Platform, rendering, audio, assets, social, payment, performance and release
+├── references/           Platform, rendering, input, assets and network, social, payment, performance, release
 │   ├── engines.md                 Source/build routing, runtime profiles, desktop and textures
-│   ├── tooling-and-backend.md     Official agent tooling and optional CloudBase route
-│   └── capability-map.md          Social, multiplayer, operations and diagnostics lookup
+│   ├── tooling-and-backend.md     Official agent tooling, CLI and CI, optional CloudBase route
+│   └── capability-map.md          Grouped lookup: social, operations, platform, diagnostics
 ├── assets/starter/       Runnable project with a small sample game
 └── scripts/wx-doc.sh     Find and read live docs
 ```
 
-The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch, audio interruptions,
-storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` callbacks. Timed rounds track foreground elapsed time separately from simulation steps; platform services expose cleanup hooks, and landscape uses a side HUD. Replace `js/game/` with your game.
+The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch with taps fired inside
+`wx.onTouchEnd` (as tap-gated APIs require), audio interruptions, storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` callbacks. Timed rounds track foreground elapsed time separately from simulation steps; platform services expose cleanup hooks, and landscape uses a side HUD. Replace `js/game/` with your game.
 
 ## Changelog
 
+- **2.2.0 (2026-11-10):** Added the tap-gated API rule (`wx.onTouchEnd` only), launch scenes and add-to-desktop (`1023`), poster sharing (`wx.showShareImageMenu`), main-context friend lists (`wx.getRelationFriendList`), system subscription types, the recommend component (`wx.createPageManager`), video, official plugins, periodic update, `SocketTask` and HTTP/2 guidance, API rate limits, EmscriptenGLX, phone profiling and cloud testing, staged release, source maps, `miniprogram-ci`, and a capability map grouped into four tables. Drift registry grew from 77 to 130 facts; `wx-doc.sh` now reads Setext-titled pages such as the scene list; typings updated to 3.8.22.
 - **2.1.0 (2026-11-09):** Replaced unmaintained `wx.createBannerAd` (3.5.5) guidance with `wx.createCustomAd` and documented its HarmonyOS conflict; added rewarded-ad SSV (`setServerSideVerificationData`, 3.10.3), `WXWebAssembly` package/Worker rules, HarmonyOS (`ohos`, 3.7.0) module matrix, PC desktop input/layout/ASTC rules, weak-network (`wx.onNetworkWeakChange`), HTTPDNS, cold-start pre-fetch, 1GB disk expansion, startup (`wx.reportScene`) vs runtime (`wx.getScenePerformanceManager`) scene telemetry, private share verification, bilingual `wx-doc.sh` aliases, and Promise-rejection callback guards in the starter.
 - **2.0.0:** Rebuilt as an installable multi-agent skill and Claude plugin with starter platform modules, snippet type-checking and live documentation drift detection.
 
 ## Staying current
 
 - **The live docs win.** Any official page is available as clean Markdown by changing `.html` to `.md`. The skill tells
-  the agent to check them, and `scripts/wx-doc.sh` makes that one command.
+  the agent to check them, and `scripts/wx-doc.sh` makes that one command, including pages the sidebar omits.
 - **Every reference is dated.** Each file states when it was last checked against the docs.
 - **Selected assertions detect drift.** `bun run check:docs` checks registered facts, official Markdown links, API names
   and guide-sidebar changes, including payment and HarmonyOS documentation conflicts. Exit 1 means changed assertions;
   exit 2 means evidence unavailable (including HTTP-200 error or rate-limit pages), which the weekly workflow separates.
 - **Examples are checked.** Typed application contracts replace blanket missing-name suppression. Behavioral tests
-  exercise cache failures, leaderboard ordering, `CustomAd` placement, desktop input, payment fallback and slow-frame countdowns.
+  exercise cache failures, leaderboard ordering, `CustomAd` placement, desktop input, sockets, poster sharing, payment fallback and slow-frame countdowns.
 
 ## What's been tested
 
@@ -120,7 +122,8 @@ storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` ca
 | Real phones                                                      | **Not yet run**               |
 
 Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not
-measured on how well they follow it. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
+measured on how well they follow it. The 2.2.0 examples (sockets, posters, recommend sheet) are checked against the
+docs and mocks only. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
 
 ## Contributing
 

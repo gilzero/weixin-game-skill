@@ -1,6 +1,6 @@
 # Rendering and layout
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 The starter implements this in `assets/starter/js/platform/screen.js` and `loop.js`. Use those files unless the project
 has its own engine.
@@ -142,6 +142,21 @@ no method list, and the client decides in the end. So:
 - [`wx.loadFont`](https://developers.weixin.qq.com/minigame/dev/api/render/font/wx.loadFont.md) loads custom fonts.
 - Compressed textures are [available from 2.5.0](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/render.md):
   `pvr` on iOS and `etc1` on Android.
+
+## Video
+
+The [video guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/video.md) offers two APIs:
+
+- [`wx.createVideo`](https://developers.weixin.qq.com/minigame/dev/api/media/video/wx.createVideo.md) adds a native
+  player positioned by `x`, `y`, `width` and `height`. It sits above the canvas, so canvas UI cannot cover it. With
+  `underGameView: true` (2.11.0) it renders below the canvas instead, which only shows through a main canvas created
+  with `getContext('webgl', { alpha: true })`.
+- Do not call `requestFullScreen`; the guide warns the system-handled full screen can misbehave. Set the video's width and
+  height to the window size. Call `destroy()` from `onEnded` or when leaving the scene.
+- [`wx.createVideoDecoder`](https://developers.weixin.qq.com/minigame/dev/api/media/video-decoder/wx.createVideoDecoder.md)
+  yields frames (`getFrameData()`) to upload as a texture. DevTools does not support it, so test on a phone; iOS High
+  Performance+ needs `videoDataType: 2` in `start`, and the [HarmonyOS guide](privacy-and-release.md#harmonyos-ohos)
+  lists the video decoder as unsupported.
 
 ## Porting
 

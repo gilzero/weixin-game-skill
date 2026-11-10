@@ -1,6 +1,6 @@
 {
   "name": "weixin-game",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Build, debug and ship WeChat mini games (微信小游戏) with verified platform rules, a runnable starter and live docs lookup.",
   "author": { "name": "gilzero" },
   "homepage": "https://github.com/gilzero/weixin-game-skill",

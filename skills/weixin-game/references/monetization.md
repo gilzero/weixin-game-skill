@@ -1,6 +1,6 @@
 # Ads and virtual payment
 
-Last verified against the official docs: 2026-11-09. These rules change often, so
+Last verified against the official docs: 2026-11-10. These rules change often, so
 [re-read the live pages](../SKILL.md#keep-this-current) before giving a definite answer.
 
 ## Ads
@@ -107,6 +107,8 @@ function mountBottomCustomAd(adUnitId) {
 - Documentation conflict, reviewed 2026-11-09: `wx.createCustomAd` states HarmonyOS support from WeChat 3.16.3, whereas
   the [HarmonyOS guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ohos.md) still lists `广告` as
   unsupported. Guard creation and `show()` rejections at runtime on `ohos`.
+- For reporting, the server-side [ad data API](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/ad-data-interface.md)
+  returns the figures shown under 流量主 in the MP console (pages of at most 90 rows; store results in your own database).
 - Legacy [banners](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/banner-ad.md) clamp `style.width`
   between 300 and screen width and report `style.realHeight` in `onResize`.
 - [Interstitials](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ad/interstitialAd-ad.md) use
@@ -170,6 +172,12 @@ function buySignedOrder(orderFromServer) {
   for example when the player kills WeChat just after paying. Never grant anything from the `success` callback alone.
 - **Currency:** check the balance with the server API `pay_v2.getBalance` before starting a purchase, because the coins
   from a lost callback may already be there. Spend with `pay_v2.pay`.
+- From the [currency guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/virtual-payment/coins.md):
+  a paid recharge can arrive late, so tell the player to wait and re-query rather than charging again. Retry
+  `pay_v2.pay` with the same `bill_no` until it returns `errcode` 0 or a logical failure; `90012` (duplicate order) means
+  that `bill_no` was already processed. `pay_v2.cancelPay` returns spent coins in full or in parts, each with a new
+  `bill_no` pointing at the original `pay_bill_no`, and `pay_v2.present` grants free coins.
+- Development and trial versions may use the payment sandbox or production; the released version only uses production.
 - **Items:** enable delivery push in the MP console and handle `minigame_game_pay_goods_deliver_notify` on your server.
   [Retries can repeat](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/virtual-payment/goods.md), so
   deliver once per `outTradeNo` and return the same success response each time.

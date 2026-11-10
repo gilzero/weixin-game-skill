@@ -31,6 +31,8 @@ test('HTTP 200 unavailable pages and non-documents are unverifiable', async () =
     await expect(fetchDocument(url, transport(new Response(body)))).rejects.toThrow(DocFetchError);
   }
   expect(validateDocument(url, '## Actual documentation\nbody')).toContain('Actual');
+  expect(validateDocument(url, '场景值列表\n===================\n\n| 1023 | 桌面 |')).toContain('1023');
+  expect(() => validateDocument(url, '===\nno title above the underline')).toThrow(DocFetchError);
 });
 
 test('missing pages retain their status while network failures remain unavailable', async () => {

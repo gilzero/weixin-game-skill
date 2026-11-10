@@ -1,6 +1,6 @@
 {
   "name": "weixin-game-skill",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "WeChat mini game (微信小游戏) development skill",
   "license": "MIT",
@@ -14,10 +14,10 @@
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "eslint": "^10.14.0",
-    "minigame-api-typings": "^3.8.21",
+    "minigame-api-typings": "^3.8.22",
     "pino": "^10.4.0",
     "prettier": "^3.9.10",
     "typescript": "^6",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.2"
   }
 }

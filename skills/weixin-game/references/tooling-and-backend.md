@@ -1,6 +1,6 @@
 # Agent tooling and backend choices
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 ## DevTools verification
 
@@ -24,6 +24,22 @@ installed tooling supports it. Report each result separately; refreshing a simul
 - Preview/upload, including the official skill's equivalents, send the package to WeChat. Ask before those operations;
   honor tool confirmation gates. Installing this skill does not authorize publishing or cloud-resource mutations.
 
+## Command line and CI
+
+- The [DevTools CLI](https://developers.weixin.qq.com/minigame/dev/devtools/cli.md) needs the service port enabled
+  (设置, 安全设置). Beyond `open`, it offers `login`, `preview`, `auto-preview`, `upload`, `close`, `quit`,
+  `reset-fileutils` and `cache --clean`; `--port` selects the HTTP port, and a running instance on another port must quit
+  first. `preview --info-output <file>` writes package sizes.
+- [`miniprogram-ci`](https://developers.weixin.qq.com/minigame/dev/devtools/ci.md) uploads and previews without DevTools.
+  Create the project with `type: 'miniGame'` (the default is `miniProgram`), a code-upload key downloaded from the MP
+  console (管理, 开发管理, 开发设置, 小程序代码上传) and an IP whitelist; without a whitelisted IP, preview and upload are
+  refused. `robot` selects one of 30 CI slots. It can also fetch the source map of the last upload and upload JSServer code.
+- The upload key can publish builds. Keep it in CI secrets, never in the repository, and reset it in the console if it
+  leaks. CI preview and upload send the package to WeChat exactly like the CLI, so the same ask-first rule applies.
+- `cli auto` enables the mini program automation port. As with the official skills above, test it on a
+  `compileType: "game"` project before relying on it.
+- For device-side evidence, see [profiling and testing on phones](performance.md#profiling-and-testing-on-phones).
+
 ## Backend work
 
 Preserve an existing backend. For a team needing one, [CloudBase's native mini game quick start](https://docs.cloudbase.net/quick-start/frameworks/wechat-minigame-native)
@@ -38,6 +54,11 @@ The [Skill/MCP guide](https://developers.weixin.qq.com/minigame/dev/wxcloud/guid
 connecting an environment and inspecting functions/logs. Route login/session exchange, payment signing, authenticated
 callbacks and idempotent delivery to server functions. Choose and verify the environment explicitly; do not provision
 or deploy cloud resources merely because this reference mentions them.
+
+Platform events (payment delivery, gift packs, activity conditions, customer messages) all arrive at the single
+[message push](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/message-push.md) URL configured in the
+MP console (管理, 开发管理, 消息推送配置). Choose the encrypted mode, verify the signature on every request, and route by
+`MsgType` and `Event` before handling, because unrelated features share that endpoint.
 
 Mini program virtual-payment skills can help with server tooling but do not establish mini game payment APIs, contracts
 or event schemas. Use [monetization.md](monetization.md) and the mini game sources for those. Server-only keys remain

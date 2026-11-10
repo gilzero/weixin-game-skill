@@ -15,10 +15,9 @@ export function validateDocument(url: string, body: string): string {
   if (!body.trim() || /site unavailable|service unavailable|access denied|captcha|访问过于频繁/i.test(body)) {
     throw new DocFetchError(url, 'empty or unavailable document body');
   }
-  if (
-    new URL(url).pathname.endsWith('.md') &&
-    (!/^#{1,6}\s+\S/m.test(body) || /<!doctype html|<html[\s>]/i.test(body))
-  ) {
+  // Some official pages, such as the scene list, title themselves with a Setext underline instead of #.
+  const hasHeading = /^#{1,6}\s+\S/m.test(body) || /^\S.*\n={3,}\s*$/m.test(body);
+  if (new URL(url).pathname.endsWith('.md') && (!hasHeading || /<!doctype html|<html[\s>]/i.test(body))) {
     throw new DocFetchError(url, 'expected Markdown documentation');
   }
   return body;

@@ -1,6 +1,6 @@
 # Engine projects and runtime profiles
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 ## Detect before editing
 
@@ -42,6 +42,7 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
   and LayaAir exporters can separate shared engine libraries into a cached WeChat client plugin (`plugins` in `game.json`
   plus `plugin.json`/`signature.json` and `requirePlugin`), supported for whole-package games and the main package of
   subpackaged games. Re-export from the IDE rather than hand-editing plugin files, which invalidates `signature.json` MD5s.
+  Engine builds should also emit source maps so [production errors](privacy-and-release.md#updates) map back to source.
 - [Playable trials](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/playable/dev.md) (`小游戏试玩`): an
   independent lightweight project and AppID (iOS/Android WeChat 8.0.50+, base library 3.5.4+; no PC or Mac) with its own
   `wx` subset and release flow. Custom engine adapters may require stubs for missing `wx` APIs, and on-phone vConsole is
@@ -61,6 +62,6 @@ For PC targets, include keyboard/mouse, focus transitions, window resize and rea
 [PC guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-game.md) covers eligibility and incentives;
 verify the current campaign terms instead of promising a blanket credit. A mobile-only prototype need not add desktop UI.
 
-Use [performance.md](performance.md) for High Performance+, Metal and Worker V2. Original Worker restrictions are not
+Use [performance.md](performance.md) for High Performance+, Metal, EmscriptenGLX and Worker V2. Original Worker restrictions are not
 rules for engine-specific threading. Keep `libVersion: "latest"` only for exploration; record the actual tested version
 and select a minimum-supported version in the project/MP settings for reproducible acceptance testing.

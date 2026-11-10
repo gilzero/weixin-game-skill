@@ -1,6 +1,6 @@
 # Assets and network
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 ## Package strategy
 
@@ -140,6 +140,39 @@ developers/experiencers only). Read with [`wx.getBackgroundFetchData`](https://d
 and optionally set [`wx.setBackgroundFetchToken`](https://developers.weixin.qq.com/minigame/dev/api/storage/background-fetch/wx.setBackgroundFetchToken.md)
 after login.
 
+[Periodic update](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/background-fetch.md) (2.8.0,
+`数据周期性更新` in the same settings page) is the companion for returning players: for anyone who used the game within
+7 days, the client fetches the configured URL about every 12 hours, even while the game is closed, with `appid`, `token`
+and `timestamp` query parameters. The same 256KB string limit and one-way rollout percentage apply. Read it with
+`wx.getBackgroundFetchData({ fetchType: 'periodic' })` (`fetchedData`, `timeStamp`), and treat both payloads as a cache
+hint that may be missing or stale, never as authoritative state. DevTools has a debug panel for it, since waiting 12
+hours is impractical.
+
+## Official plugins
+
+Mini games [cannot publish their own plugins](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/plugins.md);
+only official ones are available (social components, the cover-image loader, the open data rendering library, BLE Mesh,
+the Unity plugin and the Cocos Creator, LayaAir and Egret engine plugins). Add the plugin in the MP console first, then
+declare it and load it with [`requirePlugin`](https://developers.weixin.qq.com/minigame/dev/reference/api/requirePlugin.md):
+
+```json
+{
+  "plugins": {
+    "MinigameLoading": {
+      "version": "latest",
+      "provider": "wxbd990766293b9dc4",
+      "contexts": [{ "type": "isolatedContext" }]
+    }
+  }
+}
+```
+
+- The key is your own reference name, `provider` is the plugin's AppID, and `contexts` is only for isolated-context plugins.
+- Plugin code does not count toward the game's package size. The example above is the
+  [cover-image plugin](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start-loading-plugin.md),
+  which draws a first frame without the engine while the game's own code loads from a subpackage.
+- Read each plugin's own page for its API. Engine plugins are covered in [engines](engines.md#official-routes).
+
 ## Local storage
 
 ```js
@@ -172,11 +205,53 @@ For network features, bound retries with backoff and cancel owned tasks on scene
 mutations only with server idempotency keys. Treat background interruption and reconnect as explicit states, and surface
 terminal failures rather than retrying forever.
 
+### WebSockets
+
+```js
+/** @param {string} url */
+function openGameSocket(url) {
+  const socketTask = wx.connectSocket({ url, fail: error => console.error('socket call failed', error) });
+  // Register listeners in the same tick, or the open event can be missed.
+  socketTask.onOpen(() => socketTask.send({ data: JSON.stringify({ type: 'hello' }) }));
+  socketTask.onMessage(result => handleServerMessage(result.data));
+  socketTask.onError(error => console.error('socket error', error));
+  socketTask.onClose(result => scheduleReconnect(result.code));
+  return socketTask;
+}
+```
+
+From the [network tuning guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-network.md):
+
+- Keep the [`SocketTask`](https://developers.weixin.qq.com/minigame/dev/api/network/websocket/SocketTask.md) returned by
+  [`wx.connectSocket`](https://developers.weixin.qq.com/minigame/dev/api/network/websocket/wx.connectSocket.md) and use only
+  its methods. Apart from `wx.connectSocket` itself, the guide says not to use the global socket functions
+  (`wx.sendSocketMessage`, `wx.onSocketOpen` and the rest), which predate multiple connections.
+- `success` and `fail` on `wx.connectSocket` only report whether the call was accepted. Connection state arrives through
+  the task events. For `wx.request`, `wx.downloadFile` and `wx.uploadFile` the callbacks are the final network result.
+- `wss` belongs on port 443. `perMessageDeflate` (2.8.0) turns on compression and `timeout` (2.10.0) is in milliseconds.
+- Close the task when leaving the scene and on `wx.onHide` if the game cannot use it in the background; reconnect with
+  backoff on return rather than in a tight loop.
+
+### HTTP options and failures
+
+- [`wx.request`](https://developers.weixin.qq.com/minigame/dev/api/network/request/wx.request.md) and `wx.downloadFile`
+  accept `enableHttp2`, `enableQuic` and `enableCache` (Android WeChat 7.0.12, iOS 8.0.3). HTTP/2 header names must be
+  lowercase, so check server and client code before enabling it.
+- `not in domain url` has four documented causes: the URL is not registered, a **redirect target** is not registered,
+  a WebSocket port is not registered, or (rarely) a new domain setting has not taken effect yet.
+- An incomplete certificate chain fails on Android phones that lack the intermediate's root. Serve the full chain.
+- On iOS 14 and later, `network is down` can mean the system local-network switch is off. No API detects it, so tell
+  the player what to enable.
+- Use [`wx.onNetworkStatusChange`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.onNetworkStatusChange.md)
+  to tell "offline" apart from a slow server.
+
 ### Weak network and HTTPDNS
 
 - Detect weak networks with [`wx.onNetworkWeakChange`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.onNetworkWeakChange.md)
   (base library 2.21.0, `{ weakNet, networkType }`; remove with `wx.offNetworkWeakChange`) to pause non-essential polling
-  or warn the player. Do **not** call `wx.createCacheManager` from the shared
+  or warn the player. The client flags a weak network when, among the last eight requests, three or more connections
+  time out, three have `rtt` above 400, or three or more lose packets; it notifies at once on a change and at most
+  every 30 seconds otherwise. Do **not** call `wx.createCacheManager` from the shared
   [weak-network guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/weak-network.md): it is a mini
   program API absent from the mini game API index.
 - [HTTPDNS](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/HTTPDNS.md) (2.19.2, purchased in WeChat

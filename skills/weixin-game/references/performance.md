@@ -1,6 +1,6 @@
 # Performance
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 ## Memory
 
@@ -58,6 +58,12 @@ Check the MP rollout settings and runtime mode on the target phone. Performance 
 [iOS Metal](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-ios-metal.md) is an engine/WASM rendering
 path requiring High Performance+, base library 3.10.0 and WeChat 8.0.63. Follow the exporter-specific integration;
 other modes fall back. Do not enable it as a generic Canvas 2D optimization.
+
+[EmscriptenGLX](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-emscriptenglx.md) moves the
+GL-to-WebGL glue of WASM engines (Unity/Tuanjie, Cocos2d-x, UE) inside the WASM module, cutting frame time by a stated
+10–20%. It needs base library 3.8.12 and runs only on Android and iOS High Performance+ (iOS 14+); other runtimes fall
+back automatically. Follow the exporter-specific integration page and compare rendering on both platforms before release.
+It does nothing for a JavaScript engine or a Canvas 2D game.
 
 [WebGPU](https://developers.weixin.qq.com/minigame/dev/guide/performance/WebGPU.md) is currently Android-only (Android 10+,
 WeChat 8.0.79+, base library 3.17.3+; iOS and HarmonyOS in progress). Call [`wx.getGPU()`](https://developers.weixin.qq.com/minigame/dev/api/render/gpu/wx.getGPU.md)
@@ -144,6 +150,23 @@ It supports multiple workers, transferred OffscreenCanvas, SharedArrayBuffer and
 for the chosen runtime. A transferred canvas must no longer be drawn by the main thread. Engine SDK multithreading is
 another path: confirm engine/exporter versions and use [engine documentation](engines.md) before mixing facilities.
 
+## Profiling and testing on phones
+
+- **Android development and trial builds** (WeChat 7.0.7+): the capsule menu opens a
+  [performance panel](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-device-monitor.md), and
+  its 开发调试 entries offer `Request Force GC` (to tell a leak from delayed collection), `Take Heap Snapshot` and
+  `Start`/`Stop CPU Profile`. Copy the saved files to a computer and load them in the DevTools debugger.
+- **Upgraded remote debugging** ([beta](https://developers.weixin.qq.com/minigame/dev/devtools/remote-debug-v2.md)) adds
+  Network, Performance and source-mapped Sources panels: Android needs WeChat 8.0.55, base library 3.7.4 and DevTools
+  Nightly 1.06.2412302; iOS needs WeChat 8.0.61, base library 3.8.10, iOS 16.4, Nightly 1.06.2506242, a USB connection
+  and High Performance mode. Network lists `wx.request`, download, upload and socket traffic.
+- **[Cloud testing](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-tools-cloudtest.md)** is free: automatic
+  exploration, record-and-replay from DevTools, or the MiniGameTest framework run on real devices and report
+  performance, compatibility and stability.
+- **Targets:** the [evaluation standard](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-mesure.md)
+  is per category (casual, role-playing, board, action, competitive) and per device tier, from live player data. Read
+  the current table for the game's category instead of quoting a universal FPS or memory number.
+
 ## Startup, scene telemetry and performance rating
 
 Measure cold-start time, first playable frame, frame-time percentiles and memory growth on a named device matrix.
@@ -151,7 +174,10 @@ Use the [startup guide](https://developers.weixin.qq.com/minigame/dev/guide/perf
 
 - Draw something on the very first frame, and show progress during any wait.
 - Keep the main package small and load the rest from subpackages or a CDN.
-- Avoid heavy synchronous work in `game.js` before that first frame.
+- Avoid heavy synchronous work in `game.js` before that first frame. Keep first-screen assets inside the main package;
+  the [best-practice page](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start2.md) blames
+  slow starts on first screens that wait for CDN downloads. The official
+  [cover-image plugin](assets-and-network.md#official-plugins) draws that first frame without an engine.
 - Use [`wx.reportScene`](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-start-reportScene.md)
   (2.26.2) **only during startup** (`<= 60s` total elapsed, once per `sceneId` per launch; system `sceneId: 7` marks the
   first interactive frame `游戏可交互`). `dimension` values must be non-empty strings and `metric` values numeric strings,

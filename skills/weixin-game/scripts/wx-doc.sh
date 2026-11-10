@@ -63,6 +63,20 @@ find_pages() {
     格子广告|模板广告) query=custom-ad ;;
     性能评分|评分) query=perf-audit ;;
     反作弊) query=antiadcheat ;;
+    poster|海报) query=share-image ;;
+    subscription) query=subscribe-message ;;
+    scene|launch-scene|入口场景) query=场景值 ;;
+    灰度|灰度发布|staged-release) query=code-beta ;;
+    云测|云测试|cloud-test) query=perf-tools-cloudtest ;;
+    # These two pages are linked from API headers but absent from the sidebar index.
+    点击限制|点击行为|tap-gated|touch-limit)
+      printf 'guide/base-ability/touch-limit\t点击行为限制\n'
+      return 0
+      ;;
+    限频|调用频率|rate-limit|api-frequency)
+      printf 'guide/performance/api-frequency\t接口调用频率规范\n'
+      return 0
+      ;;
     wasm|WASM)
       grep -iE -- 'wasm|webassembly' "$INDEX_CACHE" || fail "no doc page path or title contains '$1'"
       return 0
@@ -86,7 +100,8 @@ read_page() {
     404|410) fail "HTTP $status for $url (try: wx-doc.sh find <part of the name>)" ;;
     *) echo "wx-doc: evidence unavailable: HTTP $status for $url" >&2; exit 2 ;;
   esac
-  if ! grep -Eq '^#{1,6} +[^ ]' "$body_file" || grep -Eiq '<!doctype html|<html[ >]|site unavailable|service unavailable|access denied|captcha|访问过于频繁' "$body_file"; then
+  # A few official pages (the scene list) use a Setext "====" underline instead of a # heading.
+  if ! grep -Eq '^#{1,6} +[^ ]|^={3,} *$' "$body_file" || grep -Eiq '<!doctype html|<html[ >]|site unavailable|service unavailable|access denied|captcha|访问过于频繁' "$body_file"; then
     echo "wx-doc: evidence unavailable: expected Markdown documentation at $url" >&2
     exit 2
   fi

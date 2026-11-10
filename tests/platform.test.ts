@@ -177,6 +177,19 @@ describe('input', () => {
     expect(counts.tap).toBe(1);
   });
 
+  test('tap handlers run inside the touchend callback, never before it or deferred', () => {
+    const { wx, input } = setUp();
+    let insideTouchEnd = false;
+    const tapsSeenInside: boolean[] = [];
+    input.on('tap', () => tapsSeenInside.push(insideTouchEnd));
+    wx.touch('start', [finger(1)], [finger(1)]);
+    expect(tapsSeenInside).toEqual([]);
+    insideTouchEnd = true;
+    wx.touch('end', [finger(1)], []);
+    insideTouchEnd = false;
+    expect(tapsSeenInside).toEqual([true]);
+  });
+
   test('a second finger does not re-report the first', () => {
     const { wx, seenIds } = setUp();
     wx.touch('start', [finger(1)], [finger(1)]);

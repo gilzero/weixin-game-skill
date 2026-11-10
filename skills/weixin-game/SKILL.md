@@ -4,17 +4,18 @@ description: >-
   Build, debug and ship WeChat mini games (微信小游戏) using current, verified platform rules, a runnable starter and
   live docs lookup. Use this whenever the user mentions 微信小游戏, 小游戏开发 or WeChat mini game, or works in a project
   with game.json, game.js or wx.createCanvas, even if they only ask about one piece: canvas rendering or blurry
-  graphics, touch or PC keyboard/mouse input, audio that stops or won't play, the top-right menu button (胶囊按钮) or
-  safe area, subpackages (分包), weak network or pre-fetch, friend leaderboards (开放数据域 排行榜), sharing (转发),
-  rewarded or native template ads (激励视频 原生模板广告 CustomAd), virtual payment (虚拟支付), privacy compliance,
-  HarmonyOS (鸿蒙 ohos), PC mini games, WXWebAssembly, WebGPU or High Performance+, device benchmark tiers, startup or
-  runtime scene reporting, or porting a browser, H5 or Canvas game to WeChat. Not for ordinary WeChat mini programs
+  graphics, touch or PC keyboard/mouse input, audio that stops or won't play, video, the top-right menu button
+  (胶囊按钮) or safe area, subpackages (分包), WebSocket, weak network or pre-fetch, friend leaderboards (开放数据域 排行榜),
+  sharing or posters (转发 海报), subscription messages (订阅消息), launch scenes (场景值), rewarded or native template ads
+  (激励视频 原生模板广告 CustomAd), virtual payment (虚拟支付), privacy compliance, HarmonyOS (鸿蒙 ohos), PC mini games,
+  WXWebAssembly, WebGPU or High Performance+, device benchmark tiers, startup or runtime scene reporting, CLI or
+  miniprogram-ci upload, or porting a browser, H5 or Canvas game to WeChat. Not for ordinary WeChat mini programs
   (小程序) built from WXML pages, Douyin/抖音 games using tt APIs, or web games not targeting WeChat. Includes Cocos,
   LayaAir and Unity/Tuanjie exports targeting WeChat; preserve their engine workflow.
 license: MIT
 metadata:
-  version: '2.1.0'
-  docs-verified: '2026-11-09'
+  version: '2.2.0'
+  docs-verified: '2026-11-10'
 ---
 
 # WeChat mini games
@@ -40,18 +41,18 @@ The starter runs with no build step. Its `js/platform/` files provide tested bas
 check the documented limitations before extending them. `js/game/` holds a small sample game that is meant to be replaced. Keep game rules in
 plain modules that never touch `wx`, because that is what makes them testable without WeChat.
 
-| Topic                                                                   | Read                                                            |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Limits, sizes, renamed or missing APIs                                  | [platform-facts.md](references/platform-facts.md)               |
-| Canvas, sharpness, game loop, menu button, safe area, PC layout, port   | [rendering-and-layout.md](references/rendering-and-layout.md)   |
-| Touch, PC keyboard/mouse, audio, foreground/background, async callbacks | [input-audio-lifecycle.md](references/input-audio-lifecycle.md) |
-| Package size, subpackages, pre-fetch, files, storage, weak net, HTTPDNS | [assets-and-network.md](references/assets-and-network.md)       |
-| Leaderboards, sharing, private messages, user info, game club           | [social-and-open-data.md](references/social-and-open-data.md)   |
-| Rewarded ads + SSV, native template ads (CustomAd), virtual payment     | [monetization.md](references/monetization.md)                   |
-| Memory, WXWebAssembly, Workers, PC perf, startup and scene telemetry    | [performance.md](references/performance.md)                     |
-| Login, privacy, HarmonyOS (`ohos`), updates, filing and release checks  | [privacy-and-release.md](references/privacy-and-release.md)     |
-| DevTools agent tooling, backend choices                                 | [tooling-and-backend.md](references/tooling-and-backend.md)     |
-| Social components, game services, operations, desktop                   | [capability-map.md](references/capability-map.md)               |
+| Topic                                                                              | Read                                                            |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Limits, sizes, renamed or missing APIs                                             | [platform-facts.md](references/platform-facts.md)               |
+| Canvas, sharpness, game loop, menu button, safe area, PC layout, video, port       | [rendering-and-layout.md](references/rendering-and-layout.md)   |
+| Touch, tap-gated APIs, PC keyboard/mouse, audio, lifecycle, launch scenes          | [input-audio-lifecycle.md](references/input-audio-lifecycle.md) |
+| Package size, subpackages, pre-fetch, plugins, files, storage, WebSocket, weak net | [assets-and-network.md](references/assets-and-network.md)       |
+| Leaderboards, sharing, posters, friends, user info, game club, subscriptions       | [social-and-open-data.md](references/social-and-open-data.md)   |
+| Rewarded ads + SSV, native template ads (CustomAd), virtual payment                | [monetization.md](references/monetization.md)                   |
+| Memory, WXWebAssembly, Workers, runtime modes, phone profiling, telemetry          | [performance.md](references/performance.md)                     |
+| Login, privacy, HarmonyOS (`ohos`), updates, staged release, release checks        | [privacy-and-release.md](references/privacy-and-release.md)     |
+| DevTools agent tooling, CLI and CI, backend choices, message push                  | [tooling-and-backend.md](references/tooling-and-backend.md)     |
+| Every other capability: social, operations, platform, diagnostics                  | [capability-map.md](references/capability-map.md)               |
 
 ## Rules that prevent most bugs
 
@@ -66,16 +67,19 @@ For engine projects, verify these behaviors through the engine adapters; do not 
 4. **Treat `safeArea` as optional.** Some devices omit it, and the docs define it in portrait even for landscape games.
 5. **Read `changedTouches` in touch handlers.** `touches` lists every finger still down, so it is empty when the last
    finger lifts. A touch cancel means the system took over, so never count it as a tap.
-6. **Handle leaving and returning.** Pause on `wx.onHide`, resume on `wx.onShow`, and treat
+6. **Call tap-gated APIs from `wx.onTouchEnd`.** Subscription requests, `wx.navigateToMiniProgram`, `wx.openSetting` and
+   the Channels openers only work in that callback or a `wx.showModal` / `wx.showActionSheet` one, never from
+   `wx.onTouchStart`, a timer or a network callback.
+7. **Handle leaving and returning.** Pause on `wx.onHide`, resume on `wx.onShow`, and treat
    `wx.onAudioInterruptionBegin` and `wx.onAudioInterruptionEnd` the same way, because audio stays stopped otherwise.
    Async `wx` calls without callbacks return a `Promise` (2.10.2+); pass `fail` or `.catch` on optional calls like `wx.vibrateShort`.
-7. **Use the replacements for retired or browser-only APIs.** `wx.getSystemInfoSync` (2.20.1), `wx.getDeviceInfo().benchmarkLevel`
+8. **Use the replacements for retired or browser-only APIs.** `wx.getSystemInfoSync` (2.20.1), `wx.getDeviceInfo().benchmarkLevel`
    (3.4.5) and `wx.createBannerAd` (3.5.5) are unmaintained: use `wx.getWindowInfo` / `wx.getDeviceInfo` / `wx.getAppBaseInfo`,
    `wx.getDeviceBenchmarkInfo` and `wx.createCustomAd`. Use `GameGlobal` and `WXWebAssembly`, not `window` or `WebAssembly`.
-8. **Never trust the client with money or secrets.** Payment callbacks can be lost and clients can be tampered with, so
+9. **Never trust the client with money or secrets.** Payment callbacks can be lost and clients can be tampered with, so
    grant purchases from your server. AppSecret, AppKey and `session_key` must never reach the client.
-9. **Never build rewards on a share completing.** `wx.shareAppMessage` documents no `success` callback.
-10. **Check every API against the docs before using it.** WeChat has many similar-looking APIs, and mini program APIs
+10. **Never build rewards on a share completing.** `wx.shareAppMessage` documents no `success` callback.
+11. **Check every API against the docs before using it.** WeChat has many similar-looking APIs, and mini program APIs
     often do not exist in mini games. If a reference names an API without showing its fields, read its page first, because
     names are not guessable: `wx.checkIsSupportMidasPayment` answers in `res.data.allow_pay`.
 

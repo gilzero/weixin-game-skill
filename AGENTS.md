@@ -52,10 +52,12 @@ Use `bun`, never npm, pnpm or yarn.
 - `SKILL.md` and the references must stay agent-neutral, because Codex, Cursor and Antigravity load the same files.
 - pino is for `scripts/` only. The starter uses local `console.error` plus fixed-category realtime breadcrumbs; never
   transmit raw error payloads without a reviewed redaction policy.
+- The starter emits `tap` synchronously inside `wx.onTouchEnd` on purpose: tap-gated `wx` APIs fail anywhere else, and
+  a test pins this. Do not move it to touch start or defer it.
 - Starter JS uses strict parameter types via JSDoc. DOM types describe Canvas 2D only, never authorize browser globals.
 - Snippets reject syntax, missing names and resolved-type errors. Omitted application helpers have explicit contracts
   in `scripts/snippet-globals.d.ts`; never restore blanket diagnostic suppression. The checker narrowly corrects the
-  upstream 3.8.21 privacy resolver and signed-payment string types from live docs.
+  upstream 3.8.22 privacy resolver and signed-payment string types from live docs.
 - API evals supply resources and fixtures as context, check generated syntax and save files without executing them. They do not prove
   host activation, progressive disclosure, starter copying or device behavior; model grades need review.
 - Do not run `cli preview` or `cli upload` without asking, because both send the package to WeChat.
@@ -75,23 +77,29 @@ Markdown and empty community articles are unavailable evidence (exit 2), never d
 
 To cite an API as absent from the docs, add it to `API_NAMES_NOT_IN_INDEX`. The check then warns if it ever appears.
 
+Validators accept `#` headings and Setext `===` titles (the scene list). A page with no heading at all, such as
+`minigame-testtool/overview`, reads as unavailable evidence (exit 2), so cite a neighbouring page that has one. Pages
+outside the sidebar index (`guide/base-ability/touch-limit`, `guide/performance/api-frequency`) are reachable by `read`
+and by fixed `find` aliases only, and the sidebar drift check does not watch them; their registered facts do.
+
 ## Releasing
 
 Bump `version` in `.claude-plugin/plugin.json`, `metadata.version` in `SKILL.md` and `package.json` together, and record a
 brief change summary in [README.md](README.md#changelog) and below (keeping both `README.md` and `AGENTS.md` within 150
 lines). A test keeps all three version fields in step. Claude Code only offers an update when the plugin version changes.
 
-- **Current version (`2.1.0`, `docs-verified: 2026-11-09`):** Added `wx.createCustomAd` (replacing unmaintained
-  `wx.createBannerAd` 3.5.5) + HarmonyOS conflict tracking, rewarded-ad SSV (`3.10.3`), `WXWebAssembly` package/Worker
-  constraints, HarmonyOS (`ohos` `3.7.0`) unsupported-module matrix, PC desktop input/layout/ASTC rules, weak-network
-  (`wx.onNetworkWeakChange`) + `wx.createCacheManager` absence guard, HTTPDNS + pre-fetch + 1GB storage notes,
-  `wx.reportScene` vs `wx.getScenePerformanceManager` telemetry, private share verification, bilingual `wx-doc.sh`
-  aliases, and starter Promise-rejection callback guards.
+- **Current version (`2.2.0`, `docs-verified: 2026-11-10`):** Added tap-gated APIs (`touch-limit`), launch scenes and
+  add-to-desktop, poster sharing, `wx.getRelationFriendList`, system subscription types, `wx.createPageManager`, video,
+  official plugins, periodic update, `SocketTask`/HTTP/2 guidance, API rate limits, EmscriptenGLX, phone profiling,
+  staged release, source maps and `miniprogram-ci`; grouped the capability map into four tables; grew the fact registry
+  from 77 to 130; taught both validators Setext titles; updated typings to 3.8.22 (same two corrections still needed).
 
 ## Known gaps
 
 - Official DevTools Skills document mini programs; this repo has not verified their game automation support.
 - Engine routing and new evaluation fixtures have not been validated with a real engine export or live model comparison.
+- The 2.2.0 additions (tap-gated calls, `SocketTask`, poster sharing, `wx.createPageManager`,
+  `wx.getRelationFriendList`) are verified against docs and mocks only, and eval task 13 has no live model score.
 - SkillHub is a possible distribution channel; this plugin has not been submitted or listed there.
 - Codex, Cursor and Antigravity were only checked for discovering the skill from `.agents/skills/`. Evals ran on Claude only.
 - `scripts/wx-doc.sh` needs `sh`. Without it, agents can use the `.md` doc URLs described in `SKILL.md`.

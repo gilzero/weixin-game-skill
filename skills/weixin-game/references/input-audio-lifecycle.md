@@ -1,6 +1,6 @@
 # Input, audio and lifecycle
 
-Last verified against the official docs: 2026-11-09.
+Last verified against the official docs: 2026-11-10.
 
 The starter implements this in `assets/starter/js/platform/input.js`, `audio.js` and `app-services.js`.
 
@@ -78,6 +78,22 @@ function bindDesktopInput() {
   [`wx.showKeyboard`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.showKeyboard.md), since there
   are no input elements.
 
+## Tap-gated APIs
+
+Some APIs only work [in response to a tap](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/touch-limit.md):
+`wx.navigateToMiniProgram`, `wx.requestSubscribeMessage`, `wx.requestSubscribeSystemMessage`, `wx.openSetting`,
+`wx.openCustomerServiceChat`, `wx.getPhoneNumber`, `wx.operateGameRecorderVideo`, `wx.startHandoff`,
+`wx.openAppAuthorizeSetting`, `wx.openSystemBluetoothSetting` and the Channels openers (`wx.openChannelsLive`,
+`wx.openChannelsEvent`, `wx.openChannelsActivity`, `wx.openChannelsUserProfile`, `wx.reserveChannelsLive`).
+
+- "A tap" means the callback of `wx.onTouchEnd`, `wx.showModal` or `wx.showActionSheet`. A call from `wx.onTouchStart`,
+  a timer, a network callback or the frame loop fails with `can only be invoked by user TAP gesture` or
+  `require user interaction (only in touchend event)`.
+- Make the call directly in that callback. The docs do not promise that the gesture survives a later async step, so
+  fetch template IDs, configuration or login state before showing the button.
+- The starter emits its `tap` event from `wx.onTouchEnd`, so `tap` handlers qualify. `down` and `longPress` handlers do not.
+- Individual API pages can add the same limit (for example `wx.exitMiniProgram`), so check the `限制` line in the header.
+
 ## Choosing an audio API
 
 | Use                              | For                        | Why                                                    |
@@ -149,6 +165,33 @@ their own sample uses `autoplay`. If audio is silent, look first at the mute swi
   on a cold start, and from `wx.onShow` on a warm one.
 - [Requests still running 5 seconds after hiding fail](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/network.md)
   with `fail interrupted`, so retry them on return.
+
+## Launch scenes
+
+[`wx.getLaunchOptionsSync`](https://developers.weixin.qq.com/minigame/dev/api/base/app/life-cycle/wx.getLaunchOptionsSync.md)
+(cold start) and `wx.onShow` (every return) carry `scene`, `query`, `shareTicket`, `referrerInfo` and `chatType`.
+[`wx.getEnterOptionsSync`](https://developers.weixin.qq.com/minigame/dev/api/base/app/life-cycle/wx.getEnterOptionsSync.md)
+(2.9.4) returns the most recent foreground entry. The [scene value](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/scene.md)
+says how the player arrived. Read the [full list](https://developers.weixin.qq.com/minigame/dev/reference/scene-list.md)
+before branching on a number; these are the ones games use most:
+
+| Scene              | Entry                                                                         |
+| ------------------ | ----------------------------------------------------------------------------- |
+| 1001 / 1089        | Recently used list: Discover page / pull-down on the chat list                |
+| 1103 / 1104        | "My mini programs" list: Discover page / chat pull-down (from 2.29.1)         |
+| 1007 / 1008 / 1044 | Share card in a direct chat / in a group chat / carrying a `shareTicket`      |
+| 1023               | Desktop icon. The add-to-desktop guide says every desktop launch reports this |
+| 1037 / 1038        | Opened from / returned from another mini program, with `referrerInfo.appId`   |
+| 1079               | WeChat Game Center                                                            |
+| 1131 / 1187        | Floating window                                                               |
+| 1155               | Timeline single-page preview. See [sharing](social-and-open-data.md#sharing)  |
+| 1194 / 1065        | Server-generated URL Link / URL Scheme                                        |
+
+- On Android, pressing Home and reopening from the system desktop keeps the previous scene value.
+- [Add to desktop](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/add-desktop.md) needs no integration,
+  works only for the released version and cannot be listened for. The only observable signal is a later launch with
+  scene `1023`; test that path in DevTools with a custom compile condition.
+- Treat `query` and `scene` as untrusted input. Validate invite or reward parameters on the server.
 
 ## Errors and Promise-style `wx` calls
 

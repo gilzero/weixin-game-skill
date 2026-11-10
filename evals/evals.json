@@ -191,6 +191,21 @@
         "Warns that PC GPUs lack hardware ASTC decoding so ASTC-only packages cause CPU software-decode jank",
         "Uses wx.onKeyDown/wx.onKeyUp (3.6.0+, foreground after user interaction), wx.onMouseDown (button 2) and wx.onWheel, clearing held keys on wx.onHide and detaching on destroy"
       ]
+    },
+    {
+      "id": 13,
+      "name": "tap-gated-socket-and-poster",
+      "prompt": "Our native JS WeChat mini game has three bugs on real phones. (1) The 'remind me' button calls wx.requestSubscribeSystemMessage inside wx.onTouchStart after an await fetchConfig(), and it fails with 'can only be invoked by user TAP gesture'. (2) Multiplayer uses wx.connectSocket then wx.onSocketOpen / wx.sendSocketMessage, and sometimes the open event never arrives; the server also redirects https://api.example.com to https://api2.example.com and requests die with 'not in domain url'. (3) The share-poster button passes a remote https image URL and style: 'v2' to wx.showShareImageMenu and nothing opens. Also we want to reward players who add the game to their desktop. Write outputs/reminders.js, outputs/socket.js, outputs/poster.js and outputs/notes.md.",
+      "expected_output": "Moves tap-gated calls into touchend with data prepared beforehand, uses SocketTask with synchronous listeners, exports a local poster path without style, and explains desktop launches can only be observed through scene 1023.",
+      "files": [],
+      "expectations": [
+        "Calls wx.requestSubscribeSystemMessage directly inside a wx.onTouchEnd (or wx.showModal / wx.showActionSheet) callback, with configuration fetched before the button is shown rather than awaited inside the handler",
+        "Uses the SocketTask returned by wx.connectSocket (onOpen/send/onMessage/onClose) with listeners registered synchronously, and does not use wx.onSocketOpen or wx.sendSocketMessage",
+        "Explains that the redirect target domain must also be registered in the MP console server domain list",
+        "Passes wx.showShareImageMenu a local or temporary file path (for example from canvas.toTempFilePath or wx.downloadFile) and omits the deprecated style parameter",
+        "States that adding to the desktop cannot be listened for and that the only signal is a later launch whose scene is 1023, without inventing an add-to-desktop callback",
+        "Uses SYS_MSG_TYPE_* system message types (at most three per call) and handles accept/reject/ban results without assuming acceptance"
+      ]
     }
   ]
 }

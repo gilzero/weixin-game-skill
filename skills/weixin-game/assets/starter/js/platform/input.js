@@ -72,6 +72,7 @@ function createInput() {
       touchState.y = touch.clientY;
       forget(touchState);
       emit('up', touchState);
+      // Emit synchronously inside touchend, because tap-gated wx APIs only work in that callback.
       if (!touchState.moved && !touchState.longPressed) emit('tap', touchState);
     });
   }
