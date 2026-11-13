@@ -106,5 +106,25 @@
   {
     "query": "微信小程序（WXML 页面）里用 miniprogram-ci 在 GitHub Actions 自动上传体验版，project.config.json 怎么配？",
     "should_trigger": false
+  },
+  {
+    "query": "微信小游戏想接入 RankManager 得分存档和聊天工具模式（wx.openChatTool 动态消息卡片），再避开官方浮窗组件遮挡，怎么写？",
+    "should_trigger": true
+  },
+  {
+    "query": "Our WeChat mini game enabled iOSHighPerformance in game.json and PVRTC textures broke on iPhone, plus await wx.getPrivacySetting() returns undefined.",
+    "should_trigger": true
+  },
+  {
+    "query": "用微信云开发构建小程序 Skill（app.json 配置 agent.skills 和 mcp.json，WXML 原子组件渲染待办清单），怎么写云函数？",
+    "should_trigger": false
+  },
+  {
+    "query": "Three.js 移植微信小游戏用 weapp-adapter 报错，排行榜 Layout.updateViewPort 点不中，而且提审被代码静态扫描扫出第三方 SDK 未声明隐私接口",
+    "should_trigger": true
+  },
+  {
+    "query": "How do I optimize KHR_parallel_shader_compile and WebGLRenderer preserveDrawingBuffer in a pure Three.js browser portfolio site on Vercel?",
+    "should_trigger": false
   }
 ]

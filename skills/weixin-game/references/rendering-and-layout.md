@@ -1,6 +1,6 @@
 # Rendering and layout
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 The starter implements this in `assets/starter/js/platform/screen.js` and `loop.js`. Use those files unless the project
 has its own engine.
@@ -15,6 +15,12 @@ has its own engine.
   and `canvas.getContext('webgpu')`, which cannot be combined with `webgl` on the same canvas; see [performance](performance.md#runtime-modes).
 - Use extra canvases to cache layers that rarely change, then draw them with `drawImage`. Each one holds a native
   texture until it is garbage collected, so keep only what you need.
+- [`Canvas.toTempFilePath`](https://developers.weixin.qq.com/minigame/dev/api/render/canvas/Canvas.toTempFilePath.md)
+  (callback-only — no Promise return) and `toTempFilePathSync` capture the current drawing buffer. On WebGL canvases
+  (`preserveDrawingBuffer: false` by default), calling them outside the active draw pass yields a cleared/black image,
+  whereas keeping `preserveDrawingBuffer: true` permanently hurts mobile tile-GPU frame pacing and bandwidth (and can
+  cause black/frozen frames on some client runtimes). Export screenshots synchronously right after rendering that frame,
+  or draw share posters on a dedicated offscreen 2D canvas.
 - Enabling an open data context limits what the main canvas can do. See
   [the restrictions](social-and-open-data.md#restrictions-once-it-is-enabled).
 
@@ -107,11 +113,46 @@ const topBarRight = menuButton.left - 8;
   transform; call the returned unsubscribe function or `screen.destroy()` when replacing the screen.
 - Do not sniff device models to find notches. `safeArea` already answers that.
 
+### Official floating components
+
+From base library 3.7.12 (including Windows and Mac), [`wx.getOfficialComponentsInfo`](https://developers.weixin.qq.com/minigame/dev/api/ui/menu/wx.getOfficialComponentsInfo.md)
+and [`wx.onOfficialComponentsInfoChange`](https://developers.weixin.qq.com/minigame/dev/api/ui/menu/wx.onOfficialComponentsInfoChange.md)
+report platform-rendered overlays and gift-pack badges so HUD buttons can avoid overlap and surface claimable counts:
+
+```js
+function watchOfficialComponents() {
+  if (!wx.getOfficialComponentsInfo || !wx.onOfficialComponentsInfoChange) return () => {};
+  /** @param {WechatMinigame.OfficialComponentsInfo} info */
+  const syncOverlay = info => {
+    const notice = info.notificationComponentInfo;
+    reserveOfficialBannerRect(notice && notice.isVisible ? notice.boundingClientRect : null);
+    const rewards = info.rewardsComponentInfo;
+    updateOfficialRewardBadge(rewards ? rewards.canReceiveGiftCount + rewards.canReceiveFriendGiftCount : 0);
+  };
+  /** @param {WechatMinigame.OnOfficialComponentsInfoChangeListenerResult | WechatMinigame.OfficialComponentsInfo} event */
+  const handleChange = event => syncOverlay('OfficialComponentsInfo' in event ? event.OfficialComponentsInfo : event);
+  syncOverlay(wx.getOfficialComponentsInfo());
+  wx.onOfficialComponentsInfoChange(handleChange);
+  return () => {
+    if (wx.offOfficialComponentsInfoChange) wx.offOfficialComponentsInfoChange(handleChange);
+  };
+}
+```
+
+- Documentation conflict, reviewed 2026-11-13: the `wx.getOfficialComponentsInfo` schema and `minigame-api-typings`
+  define `notificationComponentInfo.isVisible`, while the page's own sample code reads `notificationComponentInfo.isShow`.
+  Use `isVisible`.
+- `rewardsComponentInfo.receiveDetail` and `challengeRewardsComponentInfo.receiveDetail` are populated only inside
+  `wx.onOfficialComponentsInfoChange` callbacks when a player claims platform or tournament rewards.
+
 ## Orientation and large screens
 
 Set `deviceOrientation` in
 [`game.json`](https://developers.weixin.qq.com/minigame/dev/reference/configuration/app.md) to `portrait`, `landscape`,
-`landscapeLeft` or `landscapeRight`. For PC and tablet, `desktopDeviceOrientation`, `resizable` and `displayMode`
+`landscapeLeft` or `landscapeRight`. To switch orientation at runtime (for example entering a landscape match from a
+portrait lobby), call [`wx.setDeviceOrientation`](https://developers.weixin.qq.com/minigame/dev/api/device/orientation/wx.setDeviceOrientation.md)
+(base library 2.26.0, callback-only — no Promise return) and listen to `wx.onDeviceOrientationChange`; switching fails
+on PC while the window is fullscreen. For PC and tablet, `desktopDeviceOrientation`, `resizable` and `displayMode`
 (`mobile`, `pad` or `desktop`) apply, and
 [`wx.onWindowResize`](https://developers.weixin.qq.com/minigame/dev/api/ui/window/wx.onWindowResize.md) reports changes.
 See the [PC adaptation guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/pc-adapter.md) (base
@@ -121,6 +162,11 @@ library 2.26.1+; Windows supported, Mac planned):
   proportional window resizing and maximize/restore controls in the capsule.
 - Review rejects black bars or letterbox overlays in `pad` mode, in non-maximized `desktop` mode, and in **maximized
   landscape `desktop` games**. Only maximized portrait `desktop` games may show side bars or overlays.
+- On Windows and Mac, [`wx.onWindowStateChange`](https://developers.weixin.qq.com/minigame/dev/api/ui/window/wx.onWindowStateChange.md)
+  (3.8.8+, `'minimize' | 'normalize' | 'maximize'`) tracks desktop window state, and [`wx.setCursor`](https://developers.weixin.qq.com/minigame/dev/api/render/cursor/wx.setCursor.md)
+  (2.10.1+, `32x32` image recommended, `'default'` resets) customizes the pointer. Do **not** call
+  [`wx.setWindowSize`](https://developers.weixin.qq.com/minigame/dev/api/ui/window/wx.setWindowSize.md), which has been
+  unmaintained since 2.11.0.
 
 ## What the docs leave open
 
@@ -140,8 +186,8 @@ no method list, and the client decides in the end. So:
 - [Code package paths](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/file-system.md) start from the
   project root. `a/b.png` and `/a/b.png` are valid, `./a/b.png` is not.
 - [`wx.loadFont`](https://developers.weixin.qq.com/minigame/dev/api/render/font/wx.loadFont.md) loads custom fonts.
-- Compressed textures are [available from 2.5.0](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/render.md):
-  `pvr` on iOS and `etc1` on Android.
+- Compressed textures are [available from 2.5.0](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/render.md),
+  but iOS High Performance mode drops `PVRTC` and leaves only `ASTC` and `ETC1`; see [engines](engines.md#textures-and-devices).
 
 ## Video
 
@@ -154,9 +200,9 @@ The [video guide](https://developers.weixin.qq.com/minigame/dev/guide/base-abili
 - Do not call `requestFullScreen`; the guide warns the system-handled full screen can misbehave. Set the video's width and
   height to the window size. Call `destroy()` from `onEnded` or when leaving the scene.
 - [`wx.createVideoDecoder`](https://developers.weixin.qq.com/minigame/dev/api/media/video-decoder/wx.createVideoDecoder.md)
-  yields frames (`getFrameData()`) to upload as a texture. DevTools does not support it, so test on a phone; iOS High
-  Performance+ needs `videoDataType: 2` in `start`, and the [HarmonyOS guide](privacy-and-release.md#harmonyos-ohos)
-  lists the video decoder as unsupported.
+  yields frames (`getFrameData()`) to upload as a texture. DevTools and basic iOS High Performance mode do not support
+  it, so test on a phone; iOS High Performance+ supports it with `videoDataType: 2` in `start`, and the
+  [HarmonyOS guide](privacy-and-release.md#harmonyos-ohos) lists the video decoder as unsupported.
 
 ## Porting
 
@@ -165,6 +211,11 @@ The [video guide](https://developers.weixin.qq.com/minigame/dev/guide/base-abili
 - The official [weapp-adapter](https://developers.weixin.qq.com/minigame/dev/guide/runtime/adapter.md) simulates enough
   of the browser for game engines. The docs stress it is incomplete and not part of the base library, so treat it as a
   third-party file you add and may need to extend.
+- Web renderers such as Three.js and PixiJS often fail on bare `weapp-adapter` because of `canvas instanceof HTMLCanvasElement`
+  checks, missing `DOMParser` / `Blob` / `URL.createObjectURL`, binary `XMLHttpRequest` assumptions, or strict
+  `gl.getContextAttributes().preserveDrawingBuffer === true` checks (some mobile WeChat runtimes return numeric `1` / `0`
+  instead of booleans). Prefer maintained game-targeted adapters such as
+  [`three-platformize`](https://github.com/deepkolos/three-platformize) over growing ad-hoc global shims.
 - Remove `eval` and `new Function`, which are
   [not supported](https://developers.weixin.qq.com/minigame/dev/guide/runtime/js-support.md). Some template engines and
   older libraries rely on them.

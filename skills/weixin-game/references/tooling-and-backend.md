@@ -1,6 +1,6 @@
 # Agent tooling and backend choices
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 ## DevTools verification
 
@@ -23,6 +23,9 @@ installed tooling supports it. Report each result separately; refreshing a simul
   which checks remain manual. Do not claim that an untested third-party canvas MCP server solves the gap.
 - Preview/upload, including the official skill's equivalents, send the package to WeChat. Ask before those operations;
   honor tool confirmation gates. Installing this skill does not authorize publishing or cloud-resource mutations.
+- Do not confuse DevTools automation (`devtools/Skills.md`) with [`wxcloud/Skills`](https://developers.weixin.qq.com/minigame/dev/wxcloud/Skills.md)
+  (`微信对话开放能力`, base library 3.16.1+, `app.json` `agent.skills` and `mcp.json`): the latter exposes WXML mini-program
+  pages to in-WeChat AI assistants and does not run Canvas mini games or drive DevTools.
 
 ## Command line and CI
 
@@ -34,6 +37,8 @@ installed tooling supports it. Report each result separately; refreshing a simul
   Create the project with `type: 'miniGame'` (the default is `miniProgram`), a code-upload key downloaded from the MP
   console (管理, 开发管理, 开发设置, 小程序代码上传) and an IP whitelist; without a whitelisted IP, preview and upload are
   refused. `robot` selects one of 30 CI slots. It can also fetch the source map of the last upload and upload JSServer code.
+  Keep compilation flags in [`project.config.json`](https://developers.weixin.qq.com/minigame/dev/devtools/projectconfig.md);
+  `project.private.config.json` is gitignored IDE state and its build settings do not affect compiled output.
 - The upload key can publish builds. Keep it in CI secrets, never in the repository, and reset it in the console if it
   leaks. CI preview and upload send the package to WeChat exactly like the CLI, so the same ask-first rule applies.
 - `cli auto` enables the mini program automation port. As with the official skills above, test it on a
@@ -59,6 +64,13 @@ Platform events (payment delivery, gift packs, activity conditions, customer mes
 [message push](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/message-push.md) URL configured in the
 MP console (管理, 开发管理, 消息推送配置). Choose the encrypted mode, verify the signature on every request, and route by
 `MsgType` and `Event` before handling, because unrelated features share that endpoint.
+
+For outbound `api.weixin.qq.com` calls, prefer [`getStableAccessToken`](https://developers.weixin.qq.com/minigame/dev/api-backend/access-token/api_getstableaccesstoken.md)
+(`POST https://api.weixin.qq.com/cgi-bin/stable_token`) over `getAccessToken`: normal mode (`force_refresh: false`,
+10,000/min, 500,000/day) is isolated from `getAccessToken` and refreshes within the final 5 minutes without invalidating
+tokens held by other servers (`force_refresh: true` allows at most 20 calls/day at `>= 30s` intervals; store `>= 512`
+characters). Per the [backend API guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/backend-api.md),
+successful responses sometimes omit `errcode` and `errmsg`, so treat `errcode === undefined || errcode === 0` as success.
 
 Mini program virtual-payment skills can help with server tooling but do not establish mini game payment APIs, contracts
 or event schemas. Use [monetization.md](monetization.md) and the mini game sources for those. Server-only keys remain

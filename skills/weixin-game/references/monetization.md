@@ -1,6 +1,6 @@
 # Ads and virtual payment
 
-Last verified against the official docs: 2026-11-10. These rules change often, so
+Last verified against the official docs: 2026-11-13. These rules change often, so
 [re-read the live pages](../SKILL.md#keep-this-current) before giving a definite answer.
 
 ## Ads
@@ -178,9 +178,13 @@ function buySignedOrder(orderFromServer) {
   that `bill_no` was already processed. `pay_v2.cancelPay` returns spent coins in full or in parts, each with a new
   `bill_no` pointing at the original `pay_bill_no`, and `pay_v2.present` grants free coins.
 - Development and trial versions may use the payment sandbox or production; the released version only uses production.
-- **Items:** enable delivery push in the MP console and handle `minigame_game_pay_goods_deliver_notify` on your server.
+- **Items:** enable delivery push in the MP console and handle `minigame_game_pay_goods_deliver_notify` on your server,
+  acknowledging receipt with `{"ErrCode":0,"ErrMsg":"Success"}` ([shipping guide](https://developers.weixin.qq.com/minigame/introduction/commercialization/virtual-payment/send.md)).
   [Retries can repeat](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/virtual-payment/goods.md), so
   deliver once per `outTradeNo` and return the same success response each time.
+- **Recharge Center (`小游戏充值中心`):** web and official-account coin top-ups ([guide](https://developers.weixin.qq.com/minigame/introduction/commercialization/virtual-payment/recharge-center.md))
+  arrive with `PayChannel: 1` (versus `0` for in-game WeChat Pay), `_coin_`-prefixed `MchOrderNo` and `TransactionId`
+  values, and push `minigame_recharge_center_coin_deliver_completed` carrying `TargetUserOpenId` and `BuyerOpenId`.
 - Keep `wx.login` calls rare, because they can replace `session_key` and the API is rate limited. Errors 90010 and 90016
   from payment APIs mean the session needs refreshing.
 

@@ -1,6 +1,6 @@
 {
   "name": "weixin-game-skill",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "description": "WeChat mini game (微信小游戏) development skill",
   "license": "MIT",

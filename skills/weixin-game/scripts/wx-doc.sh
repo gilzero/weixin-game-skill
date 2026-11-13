@@ -68,13 +68,23 @@ find_pages() {
     scene|launch-scene|入口场景) query=场景值 ;;
     灰度|灰度发布|staged-release) query=code-beta ;;
     云测|云测试|cloud-test) query=perf-tools-cloudtest ;;
-    # These two pages are linked from API headers but absent from the sidebar index.
+    chattool) query=chat-tool ;;
+    得分存档|score-storage) query=storage-score ;;
+    加固|混淆|code-protect) query=codeprotect ;;
+    离线|离线模式) query=OfflineMode ;;
+    官方组件|浮窗组件) query=OfficialComponentsInfo ;;
+    stable_token|access_token) query=stableaccesstoken ;;
+    # These pages are linked from guides or API headers but absent from the sidebar index.
     点击限制|点击行为|tap-gated|touch-limit)
       printf 'guide/base-ability/touch-limit\t点击行为限制\n'
       return 0
       ;;
     限频|调用频率|rate-limit|api-frequency)
       printf 'guide/performance/api-frequency\t接口调用频率规范\n'
+      return 0
+      ;;
+    加密通道|加密网络通道|user-encryptkey|encryptKey|getLatestUserKey)
+      printf 'guide/open-ability/user-encryptkey\tHTTPS加密网络通道\n'
       return 0
       ;;
     wasm|WASM)

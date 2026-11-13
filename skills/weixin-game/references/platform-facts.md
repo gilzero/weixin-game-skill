@@ -1,6 +1,6 @@
 # Platform facts
 
-Last verified against the official docs: 2026-11-10. Re-check anything here with `scripts/wx-doc.sh` before quoting it
+Last verified against the official docs: 2026-11-13. Re-check anything here with `scripts/wx-doc.sh` before quoting it
 in a decision that matters.
 
 ## Limits
@@ -23,7 +23,8 @@ in a decision that matters.
 | Memory warnings   | iOS destroys the game after 2 warnings within 5 seconds; `level` is Android only, 5, 10 or 15                               | [Memory](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-memory-management.md)                                                                                          |
 | Scene telemetry   | Startup `wx.reportScene` tracks `<= 60s`; runtime `setData` allows at most 5 calls per 30s (`<= 1KB`)                       | [Runtime scene perf](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-runtime-reportPerformanceScene.md)                                                                 |
 | Legacy banners    | Width clamps between 300 and screen width; unmaintained since 3.5.5 (use `wx.createCustomAd`)                               | [wx.createBannerAd](https://developers.weixin.qq.com/minigame/dev/api/ad/wx.createBannerAd.md)                                                                                                      |
-| JavaScript        | No `eval` or `new Function`; on iOS 15 and below, Promises run as ordinary tasks                                            | [JS support](https://developers.weixin.qq.com/minigame/dev/guide/runtime/js-support.md)                                                                                                             |
+| iOS High Perf     | 1GB RAM cap on 2GB iPhones, 1.5GB on 3GB+ (keep `<= 1.3GB`); JS strict mode; ASTC/ETC1 only (no PVRTC); `wx.encode` UTF-8   | [High performance](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance.md)                                                                                        |
+| JavaScript        | No `eval` or `new Function`; `Proxy` cannot be polyfilled; `WXWeakRef` (2.23.0+); iOS `<= 15` runs Promises as tasks        | [JS support](https://developers.weixin.qq.com/minigame/dev/guide/runtime/js-support.md), [WXWeakRef](https://developers.weixin.qq.com/minigame/dev/reference/api/WXWeakRef.md)                      |
 
 `wx.getDeviceInfo().platform` can be `ios`, `android`, `ohos`, `ohos_pc`, `windows`, `mac` or `devtools`. Simulated
 HarmonyOS in DevTools still reports `devtools`, so check `system === 'HarmonyOS'` there.
@@ -44,6 +45,9 @@ HarmonyOS in DevTools still reports `devtools`, so check `system === 'HarmonyOS'
 | `canvas.addEventListener('touch…')`       | `wx.onTouchStart()` and related global listeners                                      |
 | `window.addEventListener('keydown'/…)`    | `wx.onKeyDown()`, `wx.onKeyUp()`, `wx.onMouseDown()`, `wx.onWheel()` (PC)             |
 | `navigator.vibrate()`                     | `wx.vibrateShort({ type, fail })` and `wx.vibrateLong({ fail })`                      |
+| `TextEncoder` / `TextDecoder`             | `wx.encode({ data, format })` and `wx.decode({ data, format })`                       |
+| `URL.createObjectURL(blob)`               | `wx.createBufferURL(buffer)` and `wx.revokeBufferURL(url)` (2.14.0+)                  |
+| `WeakRef`                                 | `WXWeakRef` (2.23.0+; native `WeakRef` needs iOS 14.5+ / Android WeChat 8.0.25+)      |
 | `<input>`                                 | `wx.showKeyboard()`, because there are no form elements                               |
 
 `requestAnimationFrame`, `setTimeout` and `setInterval` exist as globals.
@@ -69,5 +73,9 @@ HarmonyOS in DevTools still reports `devtools`, so check `system === 'HarmonyOS'
 | `video.requestFullScreen()`                                                  | Resize the `wx.createVideo` instance to the window instead                                                                                   |
 | Listening for "added to desktop"                                             | No such event. A later launch reports scene `1023`                                                                                           |
 | `wx.vibrateShort({ type: 'light' })` bare call                               | Async `wx` calls without callbacks return a `Promise` (2.10.2+) and reject unsupported                                                       |
+| `await wx.getPrivacySetting()` or `await wx.getPhoneNumber()`                | Callback-only APIs (`以 Promise 风格调用：不支持`) return `undefined`; pass `success`/`fail`                                                 |
+| `wx.setWindowSize` for PC window sizing                                      | Unmaintained since 2.11.0; use `game.json` `resizable`/`displayMode` and `wx.onWindowResize`                                                 |
+| `wx.startHandoff` or `wx.checkHandoffEnabled` in `game.js`                   | Open-data-context only; set `wx.setHandoffQuery` in the main game and trigger handoff in `open-data`                                         |
+| `wx.getOfficialComponentsInfo().notificationComponentInfo.isShow`            | Official sample typo; the schema and typings field is `isVisible`                                                                            |
 | `wx.createCanvas()` to draw a leaderboard                                    | `wx.getSharedCanvas()` inside the open data context                                                                                          |
 | `compileType: "minigame"` from the docs table                                | Official sample projects use `"game"`, and so does the starter                                                                               |

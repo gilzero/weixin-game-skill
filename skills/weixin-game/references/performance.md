@@ -1,6 +1,6 @@
 # Performance
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 ## Memory
 
@@ -15,6 +15,9 @@ Process ownership and limits depend on the runtime mode; profile the actual engi
   until JavaScript drops its reference and collection runs. Clear references when leaving a scene.
 - `wx.triggerGC()` only speeds up collection, with no guarantee of timing. Call it at round starts and ends and on scene
   changes.
+- For non-owning caches, [`WXWeakRef`](https://developers.weixin.qq.com/minigame/dev/reference/api/WXWeakRef.md) (base
+  library 2.23.0) works across runtimes where native `WeakRef` (iOS 14.5+ / Android WeChat 8.0.25+) is absent; guard it at
+  runtime because `minigame-api-typings@3.8.22` omits `WXWeakRef`.
 - Use engine-specific texture selection with device-supported formats and PNG/JPG fallbacks; see [engines](engines.md).
   Budget decoded/GPU memory independently from download bytes. Do not choose a format solely from the OS name.
 - Destroy audio instances you no longer need, and avoid many large images in memory at once.
@@ -50,6 +53,20 @@ Track real numbers with the 小游戏数据助手 mini program (数据, 性能�
 
 ## Runtime modes
 
+[iOS High Performance mode](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance.md)
+(`iOSHighPerformance` in `game.json`, detected at runtime via `Boolean(GameGlobal.isIOSHighPerformanceMode)`, which is
+absent on Android) changes several baseline rules:
+
+- **Strict JS and first canvas:** scripts run under `"use strict"`. An undeclared global throws in `game.js` before the
+  screen canvas is created and leaves the loading screen stuck; create the main canvas and call `getContext` early.
+- **Memory ceilings and metrics:** iOS caps memory at **1GB** on 2GB RAM iPhones and **1.5GB** on 3GB+ iPhones (stay
+  `<= 1.2–1.3GB`). 小游戏数据助手 memory and DrawCall figures are inaccurate in this mode; profile with Xcode or DevTools.
+- **Documentation conflict, reviewed 2026-11-13:** the [texture compression guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-texture-compression.md)
+  lists iOS formats as `ASTC、PVRTC、ETC1(仅高性能模式)`, whereas the High Performance guide states iOS High Performance
+  mode **drops `ETC` and `PVRTC`**, leaving only `ASTC` and `ETC1`. Prefer `ASTC` on iOS.
+- **Unsupported APIs:** `GameServerManager`, `InnerAudioContext({ useWebAudioImplement: true })` and
+  `wx.createVideoDecoder` (supported in High Performance+ with `videoDataType: 2`). `wx.encode` supports `utf-8` only.
+
 [High Performance+](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance-plus.md)
 requires High Performance mode first, then `iOSHighPerformance+` in `game.json`. The stated baseline is iOS 14 and
 WeChat 8.0.45, but the FAQ narrows iOS 14 to WeChat 8.0.49; earlier clients fall back and may lack WebGL2.
@@ -81,6 +98,11 @@ not decode mobile ASTC textures in hardware: shipping ASTC-only packages forces 
 causes severe `jank`/`bigjank` spikes, so provide DXT/BC or PNG/JPG textures on PC. Avoid high-frequency synchronous file
 I/O and mobile disk-streaming workarounds (such as Unity `WXAssetBundle`) on PC, where file I/O latency is higher and
 mobile memory ceilings do not apply, and remove unnecessary mobile 30 FPS thermal caps.
+
+For on-device ML and AR, [`wx.createInferenceSession`](https://developers.weixin.qq.com/minigame/dev/api/ai/inference/wx.createInferenceSession.md)
+(base library 2.30.0) runs local `.onnx` models and [`wx.createVKSession`](https://developers.weixin.qq.com/minigame/dev/api/ai/visionkit/wx.createVKSession.md)
+(2.20.0; `v2` plane plus marker tracking from 2.33.0) drives VisionKit AR tracking. Profile memory and thermal throttling
+on target phones before shipping either path.
 
 ## WXWebAssembly
 
@@ -189,4 +211,7 @@ Use the [startup guide](https://developers.weixin.qq.com/minigame/dev/guide/perf
   should stay `<= 1024` characters, and high-cardinality IDs (user IDs, timestamps, room IDs) should be omitted.
 - Enable [performance monitoring](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-audit/perf-system-overview.md)
   (`大盘性能监控`) in MP to track category-specific startup, runtime and network scores (scores `< 90` surface targeted
-  remediation; quick-adaptation games default to medium-core unless updated).
+  remediation; quick-adaptation games default to medium-core unless updated). Under the
+  [rating rules](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-audit/perf-system-rating-rule.md),
+  memory crash rate (`内存异常退出率`) and first-frame render time (`首帧耗时`) carry the maximum weight (`7`), while
+  `wx.request` and `wx.downloadFile` failure rates (including HTTP `400–599` responses) carry weight `6` each.

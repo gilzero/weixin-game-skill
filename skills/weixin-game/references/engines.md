@@ -1,6 +1,6 @@
 # Engine projects and runtime profiles
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 ## Detect before editing
 
@@ -24,12 +24,29 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
 ## Official routes
 
 - [Cocos Creator 3.8 WeChat export](https://docs.cocos.com/creator/3.8/manual/en/editor/publish/publish-wechatgame.html):
-  use the manual matching the installed version. Configure remote resources, cache versions and subpackages through
-  Creator's asset/build pipeline. Generated settings are evidence of the build, not the source of truth.
+  use the manual matching the installed version. Configure remote resources, MD5 cache versions and subpackages through
+  Creator's asset/build pipeline; generated settings are evidence of the build, not the source of truth. Creator's
+  `assetManager.cacheManager` stores downloaded bundles under `wx.env.USER_DATA_PATH` with LRU eviction (`clearCache` /
+  `removeCache`), `Separate Engine` requires a real AppID (`touristappid` cannot load engine plugins), and 3D WASM
+  physics (`PhysX` / `Bullet`) offers `wasm`, `js` or `fallback` modes that must be memory-tested on phones.
 - [Unity/Tuanjie conversion](https://developers.weixin.qq.com/minigame/dev/guide/game-engine/unity-webgl-transform.md):
-  inspect SDK version and MP eligibility; use its C# bindings for platform integration. The
-  [Tuanjie SDK manual](https://docs.unity.cn/cn/tuanjiemanual/1.8/Manual/WechatSDK.html) documents version-specific
-  compatibility caveats. Do not upgrade the engine or SDK solely to match an example.
+  inspect SDK version and MP eligibility; use its C# bindings for platform integration. Both the converter repository
+  ([`minigame-unity-webgl-transform`](https://github.com/wechat-miniprogram/minigame-unity-webgl-transform)) and the
+  [Tuanjie SDK manual](https://docs.unity.cn/cn/tuanjiemanual/1.8/Manual/WechatSDK.html) document ecosystem build rules:
+  - Keep only a lightweight bootstrap scene in `Scenes in Build` and empty `Resources/` so `webgl.data` stays small; load
+    gameplay content via `WXAssetBundle` built with `BuildAssetBundleOptions.AppendHashToAssetBundle` (or `DataFileSubpackage`
+    / Tuanjie `AutoStreaming`).
+  - Uncheck texture `Read/Write Enabled` (avoids duplicate CPU + GPU copies), disable Mipmaps on UI/2D sprites (~33%
+    extra memory), and raise `Managed Stripping Level` with `link.xml` rules for reflection-bound types.
+  - Target WebGL 2.0 explicitly instead of `Auto Graphics API` to avoid shipping both WebGL 1 and WebGL 2 shader
+    variants; replace synchronous `ShaderVariantCollection.WarmUp()` stalls with progressive/async warmup
+    (`KHR_parallel_shader_compile`) and GPU skinning, and stream long BGM via `WXInnerAudioContext` rather than decoding
+    full clips into the WASM heap.
+  - For release builds that need tamper resistance, use the official
+    [Unity security hardening tool](https://developers.weixin.qq.com/minigame/dev/devtools/security_hardening_tool.md)
+    (`global-metadata.dat` encryption via `WXDataPlugin` plus `[WasmObfuscate]` on sensitive C# methods) and
+    [memory protection](https://developers.weixin.qq.com/minigame/dev/devtools/memoryprotect.md). Do not upgrade the
+    engine or SDK solely to match an example.
 - [General adaptation](https://developers.weixin.qq.com/minigame/dev/guide/game-engine/common-adaptation.md): for
   engines exporting WASM + WebGL H5 packages. Read its SDK integration and compatibility docs before choosing it.
 - [WASM code splitting](https://developers.weixin.qq.com/minigame/dev/guide/game-engine/WasmSplitV2_1.md): match the
@@ -37,7 +54,9 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
   (`wasmsplit-v2-ci`), whereas the Unity-specific exporter (`UnityPlugin`) uses its own `wasmCodeSplit` (`wasmsplit-ci`)
   line matched to the UnityWasm SDK version; never mix the two plugin lines.
 - LayaAir: find the WeChat export guide for the detected version through the [official manual](https://layaair.com/).
-  Do not infer Cocos settings or Unity SDK behavior for LayaAir.
+  Configure subpackages, MD5 version hashes, `USER_DATA_PATH` resource caching and ASTC + PNG/JPG fallback texture
+  compression inside LayaAir IDE's WeChat publish panel rather than patching exported `libs/` bundles; do not infer Cocos
+  settings or Unity SDK behavior for LayaAir.
 - [Game engine plugins](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/game-engine-plugin.md): Creator
   and LayaAir exporters can separate shared engine libraries into a cached WeChat client plugin (`plugins` in `game.json`
   plus `plugin.json`/`signature.json` and `requirePlugin`), supported for whole-package games and the main package of
@@ -52,9 +71,12 @@ For a browser port, audit DOM/browser dependencies and choose the adaptation pat
 
 [Cocos texture guidance](https://docs.cocos.com/creator/3.8/manual/zh/asset/compress-texture.html) and the
 [platform texture compression guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-action-texture-compression.md)
-cover ASTC, PVRTC and ETC1 (High Performance mode only) on iOS, ASTC, ETC1 and ETC2 on Android, and DXT1/3/5 plus BC4/5/7
-on Windows, Mac and DevTools, with PNG/JPG fallbacks. DevTools cannot establish ASTC rendering on a phone, and shipping
-ASTC-only packages to PC/Mac forces expensive CPU software decoding; see [PC performance](performance.md#runtime-modes).
+list ASTC, PVRTC and ETC1 (High Performance mode only) on iOS, ASTC, ETC1 and ETC2 on Android, and DXT1/3/5 plus BC4/5/7
+on Windows, Mac and DevTools, with PNG/JPG fallbacks. However, the
+[iOS High Performance guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance.md)
+explicitly states that iOS High Performance mode **does not support `ETC` or `PVRTC`**, leaving only `ASTC` and `ETC1` —
+so never ship `PVRTC`-only bundles for iOS High Performance builds. DevTools cannot establish ASTC rendering on a phone,
+and shipping ASTC-only packages to PC/Mac forces expensive CPU software decoding; see [PC performance](performance.md#runtime-modes).
 Use the engine's selection mechanism and measure both download size and decoded/GPU memory. Other engines need their own
 format profile.
 

@@ -2,8 +2,16 @@
 // @desc: music effects and interruption handling
 const SOUND_VOICES = 3;
 
-/** @param {{useWebAudioImplement?: boolean}} options */
-function createAudio({ useWebAudioImplement = false } = {}) {
+/** @param {{useWebAudioImplement?: boolean, obeyMuteSwitch?: boolean}} options */
+function createAudio({ useWebAudioImplement = false, obeyMuteSwitch } = {}) {
+  const isIOSHighPerformance = typeof GameGlobal !== 'undefined' && Boolean(GameGlobal.isIOSHighPerformanceMode);
+  const webAudioImplement = Boolean(useWebAudioImplement) && !isIOSHighPerformance;
+  if (typeof obeyMuteSwitch === 'boolean' && wx.setInnerAudioOption) {
+    wx.setInnerAudioOption({
+      obeyMuteSwitch,
+      fail: error => console.error('inner audio option failed', error),
+    });
+  }
   /** @type {Map<string, {voices: WechatMinigame.InnerAudioContext[], nextVoice: number}>} */
   const soundPools = new Map();
   /** @type {WechatMinigame.InnerAudioContext | null} */
@@ -95,8 +103,8 @@ function createAudio({ useWebAudioImplement = false } = {}) {
       if (previous) previous.voices.forEach(voice => voice.destroy());
       const voices = [];
       for (let index = 0; index < voiceCount; index += 1) {
-        // Opt in only after checking the runtime mode; iOS high performance mode does not support this backend.
-        const voice = wx.createInnerAudioContext({ useWebAudioImplement });
+        // GameGlobal.isIOSHighPerformanceMode disables useWebAudioImplement automatically on iPhone high-perf runtimes.
+        const voice = wx.createInnerAudioContext({ useWebAudioImplement: webAudioImplement });
         voice.src = src;
         voice.onError(error => console.error('sound failed', name, error));
         voices.push(voice);

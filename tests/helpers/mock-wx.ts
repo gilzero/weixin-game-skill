@@ -160,6 +160,7 @@ export interface MockAudio {
 export interface MockWx {
   canvases: MockCanvas[];
   audios: MockAudio[];
+  innerAudioOptions: unknown[];
   webAudioCalls: string[];
   storage: Map<string, unknown>;
   shareMenu: unknown[];
@@ -201,6 +202,7 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
   const wx: MockWx = {
     canvases: [],
     audios: [],
+    innerAudioOptions: [],
     webAudioCalls: [],
     storage: new Map(),
     shareMenu: [],
@@ -274,6 +276,9 @@ export function installMockWx(device: Device): { wx: MockWx; frames: RunningFram
     },
     removeStorageSync(key: string) {
       wx.storage.delete(key);
+    },
+    setInnerAudioOption(options: unknown) {
+      wx.innerAudioOptions.push(options);
     },
     createInnerAudioContext(options: unknown) {
       const audio: MockAudio = {

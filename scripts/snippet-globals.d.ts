@@ -49,3 +49,7 @@ declare const boardY: number;
 declare const pixelRatio: number;
 declare function handleServerMessage(data: string | ArrayBuffer): void;
 declare function scheduleReconnect(closeCode: number): void;
+declare function reserveOfficialBannerRect(rect: WechatMinigame.ClientRect | null): void;
+declare function updateOfficialRewardBadge(count: number): void;
+declare function renderSyncedScores(scores: Record<string, { score: number; timestamp: number }>): void;
+declare function setPrivacyContractTitle(contractName: string): void;

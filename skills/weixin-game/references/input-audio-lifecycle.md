@@ -1,6 +1,6 @@
 # Input, audio and lifecycle
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 The starter implements this in `assets/starter/js/platform/input.js`, `audio.js` and `app-services.js`.
 
@@ -74,6 +74,9 @@ function bindDesktopInput() {
 - [`wx.onMouseDown`](https://developers.weixin.qq.com/minigame/dev/api/device/mouse-event/wx.onMouseDown.md) (`button`: `0`
   left, `1` middle, `2` right) and [`wx.onWheel`](https://developers.weixin.qq.com/minigame/dev/api/device/wheel-event/wx.onWheel.md)
   (`deltaX`, `deltaY`, `deltaZ`) report logical window coordinates.
+- For 3D or FPS camera look on Windows and Mac, [`wx.requestPointerLock`](https://developers.weixin.qq.com/minigame/dev/api/render/cursor/wx.requestPointerLock.md)
+  (base library 3.2.0, paired with `wx.exitPointerLock` and `wx.isPointerLocked`) locks and hides the cursor when called
+  from a user gesture; mouse movement arrives via `wx.onTouchMove`.
 - For text entry use
   [`wx.showKeyboard`](https://developers.weixin.qq.com/minigame/dev/api/device/keyboard/wx.showKeyboard.md), since there
   are no input elements.
@@ -107,10 +110,16 @@ Rules from the [audio guide](https://developers.weixin.qq.com/minigame/dev/guide
 - Reuse instances for the same sound and call `destroy()` on ones you no longer need.
 - Android plays at most 10 sounds at once and quietly degrades the rest.
 - [`wx.setInnerAudioOption`](https://developers.weixin.qq.com/minigame/dev/api/media/audio/wx.setInnerAudioOption.md) sets
-  `obeyMuteSwitch` (iOS) and `mixWithOther` globally. The `obeyMuteSwitch` property on the instance has had no effect
-  since 2.3.0.
-- `useWebAudioImplement` is not supported in iOS high performance mode, and WebAudio there needs extra handling after a
-  return from the background on iOS 17.5 and later. The guide has the code.
+  `obeyMuteSwitch` (iOS, default `true`), `mixWithOther` and `speakerOn` globally; the instance `obeyMuteSwitch` property
+  has had no effect since 2.3.0. On iPhones with the physical Ring/Silent switch muted, `InnerAudioContext` stays silent
+  unless you call `wx.setInnerAudioOption({ obeyMuteSwitch: false, fail })` (or `createAudio({ obeyMuteSwitch: false })`
+  in the starter). Per the API caveats, `wx.setInnerAudioOption` does **not** apply to `wx.createWebAudioContext()` or
+  `wx.createInnerAudioContext({ useWebAudioImplement: true })`, and `speakerOn: true` forces audio exclusivity by
+  ignoring `mixWithOther`.
+- `useWebAudioImplement` is not supported in [iOS High Performance mode](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-high-performance.md)
+  (`Boolean(GameGlobal.isIOSHighPerformanceMode)`), and WebAudio there needs extra handling after a return from the
+  background on iOS 17.5 and later. The starter checks `GameGlobal.isIOSHighPerformanceMode` and degrades
+  `useWebAudioImplement` to `false` automatically.
 - Check [supported formats per platform](https://developers.weixin.qq.com/minigame/dev/api/media/audio/InnerAudioContext.md)
   before choosing a file type.
 
@@ -190,7 +199,9 @@ before branching on a number; these are the ones games use most:
 - On Android, pressing Home and reopening from the system desktop keeps the previous scene value.
 - [Add to desktop](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/add-desktop.md) needs no integration,
   works only for the released version and cannot be listened for. The only observable signal is a later launch with
-  scene `1023`; test that path in DevTools with a custom compile condition.
+  scene `1023`; test that path in DevTools with a custom compile condition. By contrast, "My mini programs" (scenes
+  `1103` / `1104`) can be queried directly via [`wx.checkIsAddedToMyMiniProgram`](https://developers.weixin.qq.com/minigame/dev/api/open-api/my-miniprogram/wx.checkIsAddedToMyMiniProgram.md)
+  (2.29.1+, callback-only, `res.added`).
 - Treat `query` and `scene` as untrusted input. Validate invite or reward parameters on the server.
 
 ## Errors and Promise-style `wx` calls
@@ -201,12 +212,20 @@ early, or failures on players' phones leave no trace. On a phone, console output
 [vConsole](https://developers.weixin.qq.com/minigame/dev/guide/runtime/debug/vConsole.md), which cannot print `undefined`,
 functions, `ArrayBuffer` or objects with circular references.
 
-From base library 2.10.2, [async `wx` APIs return a `Promise`](https://developers.weixin.qq.com/miniprogram/dev/framework/app-service/api.md)
-whenever the options object omits `success`, `fail` and `complete` (task-returning APIs such as `request`, `downloadFile`,
-`uploadFile` and `connectSocket` excluded). Calling optional capabilities such as `wx.vibrateShort({ type: 'light' })` or
-`wx.showShareMenu(...)` with no `fail` callback or `.catch()` triggers `Uncaught (in promise)` and `wx.onUnhandledRejection`
-on PC, Mac or devices without haptics. Always pass `fail` (or handle `.catch`) on fire-and-forget `wx` calls, as the
-starter does.
+From base library 2.10.2, [most async `wx` APIs return a `Promise`](https://developers.weixin.qq.com/miniprogram/dev/framework/app-service/api.md)
+whenever the options object omits `success`, `fail` and `complete`. Two traps catch developers out:
+
+- **Unhandled rejections on fire-and-forget calls:** calling optional capabilities such as
+  `wx.vibrateShort({ type: 'light' })` or `wx.showShareMenu(...)` with no `fail` callback or `.catch()` triggers
+  `Uncaught (in promise)` and `wx.onUnhandledRejection` on PC, Mac or devices without haptics. Always pass `fail` (or
+  handle `.catch`) on optional calls, as the starter does.
+- **Callback-only APIs (`以 Promise 风格调用：不支持`):** beyond task-returning APIs (`request`, `downloadFile`,
+  `uploadFile`, `connectSocket`), several async APIs explicitly omit Promise returns and yield `undefined` without
+  callbacks — including [`wx.getPrivacySetting`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.getPrivacySetting.md),
+  [`wx.getPhoneNumber`](https://developers.weixin.qq.com/minigame/dev/api/open-api/user-info/wx.getPhoneNumber.md),
+  `wx.checkIsAddedToMyMiniProgram`, `wx.setDeviceOrientation`, `wx.enableOfflineModeDebug`, `wx.startHandoff`,
+  `wx.checkHandoffEnabled`, `Canvas.toTempFilePath` and `RankManager.getScore`. Pass `success`/`fail` callbacks on these,
+  and check the API page header before `await`-ing an unfamiliar `wx` or instance method.
 
 ## Compatibility
 

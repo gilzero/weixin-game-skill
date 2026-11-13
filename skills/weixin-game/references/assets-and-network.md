@@ -1,6 +1,6 @@
 # Assets and network
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 ## Package strategy
 
@@ -183,6 +183,12 @@ const save = wx.getStorageSync('save') || { level: 1 };
 - [1MB per key and 10MB in total](https://developers.weixin.qq.com/minigame/dev/api/storage/wx.setStorage.md), isolated
   per user and per game. Writes can throw when full, so catch and log them.
 - Local storage is cleared with the code package, so keep anything valuable on a server.
+- For in-memory binary blobs, [`wx.createBufferURL`](https://developers.weixin.qq.com/minigame/dev/api/storage/wx.createBufferURL.md)
+  (2.14.0) exposes an `ArrayBuffer` or TypedArray as a memory URL; call `wx.revokeBufferURL(url)` as soon as loading
+  completes so native memory is released.
+- Global `TextEncoder` and `TextDecoder` are not part of the runtime baseline; use [`wx.encode`](https://developers.weixin.qq.com/minigame/dev/api/util/wx.encode.md)
+  and [`wx.decode`](https://developers.weixin.qq.com/minigame/dev/api/util/wx.decode.md). In iOS High Performance and High
+  Performance+ modes, `wx.encode` supports `format: 'utf-8'` only.
 
 ## Network
 
@@ -244,8 +250,11 @@ From the [network tuning guide](https://developers.weixin.qq.com/minigame/dev/gu
   the player what to enable.
 - Use [`wx.onNetworkStatusChange`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.onNetworkStatusChange.md)
   to tell "offline" apart from a slow server.
+- In [platform performance ratings](https://developers.weixin.qq.com/minigame/dev/guide/performance/perf-audit/perf-system-rating-rule.md),
+  HTTP `400–599` responses on `wx.request` and `wx.downloadFile` count directly toward `Request失败率` and
+  `Download失败率` (weight `6` each). Avoid using `404` or `409` responses for routine cache or state probes.
 
-### Weak network and HTTPDNS
+### Weak network, offline mode and encrypted channels
 
 - Detect weak networks with [`wx.onNetworkWeakChange`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.onNetworkWeakChange.md)
   (base library 2.21.0, `{ weakNet, networkType }`; remove with `wx.offNetworkWeakChange`) to pause non-essential polling
@@ -254,9 +263,18 @@ From the [network tuning guide](https://developers.weixin.qq.com/minigame/dev/gu
   every 30 seconds otherwise. Do **not** call `wx.createCacheManager` from the shared
   [weak-network guide](https://developers.weixin.qq.com/minigame/dev/guide/performance/weak-network.md): it is a mini
   program API absent from the mini game API index.
+- **Offline mode** (base library 3.16.0): [`wx.onOfflineModeStateChange`](https://developers.weixin.qq.com/minigame/dev/api/offline-mode/wx.onOfflineModeStateChange.md)
+  (paired with `wx.offOfflineModeStateChange`) notifies when platform offline mode toggles, and callback-only
+  [`wx.enableOfflineModeDebug`](https://developers.weixin.qq.com/minigame/dev/api/offline-mode/wx.enableOfflineModeDebug.md)
+  simulates offline mode in development and trial builds unless server-configured.
 - [HTTPDNS](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/HTTPDNS.md) (2.19.2, purchased in WeChat
   Service Market) avoids carrier Local DNS hijacking via `wx.request({ url, enableHttpDNS: true, httpDNSServiceId })`.
   Check [`wx.getNetworkType`](https://developers.weixin.qq.com/minigame/dev/api/device/network/wx.getNetworkType.md)
   (`res.hasSystemProxy`, WeChat 8.0.17+) and disable `enableHttpDNS` when a system proxy is active to avoid
   `ERR_PROXY_CONNECTION_FAILED` (`errno: 600001`) on older runtimes. When quota reaches zero (`errno: 602103`), WeChat
   falls back to Local DNS.
+- **HTTPS encrypted channel** ([guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/user-encryptkey.md),
+  base library 2.17.3): [`wx.getUserCryptoManager`](https://developers.weixin.qq.com/minigame/dev/api/base/crypto/wx.getUserCryptoManager.md)
+  (`getLatestUserKey` returning `{ encryptKey, iv, version, expireTime }`, plus `getRandomValues`) pairs with server
+  `getUserEncryptKey` (returns the player's last three versioned keys) so sensitive `wx.request` payloads can be AES
+  encrypted and HMAC-signed against replay or tampering; bring your own AES implementation on client and server.

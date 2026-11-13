@@ -74,7 +74,7 @@ export function checkSnippets(
     const readFile = host.readFile;
     host.readFile = path => {
       const source = readFile(path);
-      // 3.8.22 still contradicts live examples for the privacy resolver and signed payment string.
+      // 3.8.22 still contradicts live examples for privacy, signed payment, RankManager.getScore and wx.isChatTool.
       return path.endsWith('/types/wx/lib.wx.api.d.ts')
         ? source
             ?.replace(
@@ -82,6 +82,11 @@ export function checkSnippets(
               "type OnNeedPrivacyAuthorizationCallback = (resolve: (choice: {event: 'exposureAuthorization' | 'agree' | 'disagree'}) => void) => void",
             )
             .replace('signData: SignData1', 'signData: string')
+            .replace(
+              'type GetScoreSuccessCallback = (res: GeneralCallbackResult) => void',
+              'type GetScoreSuccessCallback = (res: GeneralCallbackResult & { scores: Record<string, { score: number; timestamp: number }> }) => void',
+            )
+            .replace('isChatTool(): void', 'isChatTool(): boolean')
         : source;
     };
     const program = ts.createProgram(

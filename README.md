@@ -88,25 +88,21 @@ skills/weixin-game/
 └── scripts/wx-doc.sh     Find and read live docs
 ```
 
-The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch with taps fired inside
-`wx.onTouchEnd` (as tap-gated APIs require), audio interruptions, storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` callbacks. Timed rounds track foreground elapsed time separately from simulation steps; platform services expose cleanup hooks, and landscape uses a side HUD. Replace `js/game/` with your game.
+The starter's `js/platform/` covers canvas scaling, the menu button and safe area, multi-touch with taps fired inside `wx.onTouchEnd` (as tap-gated APIs require), audio interruptions (with automatic `GameGlobal.isIOSHighPerformanceMode` fallback and optional `obeyMuteSwitch` setup), storage, sharing, error breadcrumbs, update prompts and guarded optional `wx` callbacks. Timed rounds track foreground elapsed time separately from simulation steps; platform services expose cleanup hooks, and landscape uses a side HUD. Replace `js/game/` with your game.
 
 ## Changelog
 
-- **2.2.0 (2026-11-10):** Added the tap-gated API rule (`wx.onTouchEnd` only), launch scenes and add-to-desktop (`1023`), poster sharing (`wx.showShareImageMenu`), main-context friend lists (`wx.getRelationFriendList`), system subscription types, the recommend component (`wx.createPageManager`), video, official plugins, periodic update, `SocketTask` and HTTP/2 guidance, API rate limits, EmscriptenGLX, phone profiling and cloud testing, staged release, source maps, `miniprogram-ci`, and a capability map grouped into four tables. Drift registry grew from 77 to 130 facts; `wx-doc.sh` now reads Setext-titled pages such as the scene list; typings updated to 3.8.22.
-- **2.1.0 (2026-11-09):** Replaced unmaintained `wx.createBannerAd` (3.5.5) guidance with `wx.createCustomAd` and documented its HarmonyOS conflict; added rewarded-ad SSV (`setServerSideVerificationData`, 3.10.3), `WXWebAssembly` package/Worker rules, HarmonyOS (`ohos`, 3.7.0) module matrix, PC desktop input/layout/ASTC rules, weak-network (`wx.onNetworkWeakChange`), HTTPDNS, cold-start pre-fetch, 1GB disk expansion, startup (`wx.reportScene`) vs runtime (`wx.getScenePerformanceManager`) scene telemetry, private share verification, bilingual `wx-doc.sh` aliases, and Promise-rejection callback guards in the starter.
+- **2.3.0 (2026-11-13):** Added callback-only async API rules (`wx.getPrivacySetting`, `wx.getPhoneNumber`, `wx.setDeviceOrientation`, `Canvas.toTempFilePath`, `RankManager.getScore`), `RankManager` score storage and tournaments (3.14.2+), Chat Tool mode and updatable cards (3.7.12+), official floating components (`wx.getOfficialComponentsInfo` `isVisible` vs sample `isShow` conflict), iOS High Performance mode rules and `PVRTC` texture conflict, starter `isIOSHighPerformanceMode` fallback and `obeyMuteSwitch` option (`wx.setInnerAudioOption` WebAudio caveat), offline mode (3.16.0+), HTTPS encrypted channels (`user-encryptkey`), Recharge Center (`PayChannel: 1`), `getStableAccessToken`, mini-game UGC/anti-cheat APIs, JS/Unity code hardening, `WXWeakRef`, on-device AI/VisionKit, `wx-doc.sh` aliases, and ecosystem guidance for Unity/Tuanjie (`WXAssetBundle`, texture/shader/BGM tuning), Cocos 3.8 (`cacheManager`, `Separate Engine`, WASM physics), LayaAir 3, `three-platformize`/WebGL `preserveDrawingBuffer` capture, `Layout.updateViewPort`, and MP static privacy-scan pitfalls (171 facts).
+- **2.2.0 (2026-11-10):** Added tap-gated APIs (`wx.onTouchEnd`), launch scenes and add-to-desktop (`1023`), poster sharing (`wx.showShareImageMenu`), `wx.getRelationFriendList`, system subscriptions, `wx.createPageManager`, video, official plugins, periodic update, `SocketTask`/HTTP/2, API rate limits, EmscriptenGLX, phone profiling/cloud test, staged release, source maps, `miniprogram-ci`, four-table capability map, Setext doc parsing, and 3.8.22 typings (130 facts).
+- **2.1.0 (2026-11-09):** Replaced retired `wx.createBannerAd` with `wx.createCustomAd` (+ `ohos` conflict); added rewarded-ad SSV, `WXWebAssembly`, HarmonyOS (`ohos`), PC desktop rules, weak-network, HTTPDNS, pre-fetch, 1GB storage, scene telemetry, private shares, and Promise-rejection guards.
 - **2.0.0:** Rebuilt as an installable multi-agent skill and Claude plugin with starter platform modules, snippet type-checking and live documentation drift detection.
 
 ## Staying current
 
-- **The live docs win.** Any official page is available as clean Markdown by changing `.html` to `.md`. The skill tells
-  the agent to check them, and `scripts/wx-doc.sh` makes that one command, including pages the sidebar omits.
+- **The live docs win.** Any official page is available as clean Markdown by changing `.html` to `.md`. The skill tells the agent to check them, and `scripts/wx-doc.sh` makes that one command, including pages the sidebar omits.
 - **Every reference is dated.** Each file states when it was last checked against the docs.
-- **Selected assertions detect drift.** `bun run check:docs` checks registered facts, official Markdown links, API names
-  and guide-sidebar changes, including payment and HarmonyOS documentation conflicts. Exit 1 means changed assertions;
-  exit 2 means evidence unavailable (including HTTP-200 error or rate-limit pages), which the weekly workflow separates.
-- **Examples are checked.** Typed application contracts replace blanket missing-name suppression. Behavioral tests
-  exercise cache failures, leaderboard ordering, `CustomAd` placement, desktop input, sockets, poster sharing, payment fallback and slow-frame countdowns.
+- **Selected assertions detect drift.** `bun run check:docs` checks registered facts, official Markdown links, API names and guide-sidebar changes, including payment, iOS texture, floating-component and HarmonyOS conflicts. Exit 1 means drift; exit 2 means unavailable evidence (including HTTP-200 error or rate-limit pages), which the weekly workflow separates.
+- **Examples are checked.** Typed application contracts replace blanket missing-name suppression. Behavioral tests exercise cache failures, leaderboard ordering, `RankManager` scores, Chat Tool cards, official overlays, privacy prechecks, `CustomAd` placement, desktop input, sockets, poster sharing, payment fallback and slow-frame countdowns.
 
 ## What's been tested
 
@@ -121,9 +117,7 @@ The starter's `js/platform/` covers canvas scaling, the menu button and safe are
 | A real round in the WeChat DevTools simulator, with a test AppID | Run by hand                   |
 | Real phones                                                      | **Not yet run**               |
 
-Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not
-measured on how well they follow it. The 2.2.0 examples (sockets, posters, recommend sheet) are checked against the
-docs and mocks only. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
+Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not measured on how well they follow it. The 2.2.0 and 2.3.0 examples (sockets, posters, recommend sheet, `RankManager`, Chat Tool, official overlays, `getPrivacySetting`) are checked against the docs and mocks only. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
 
 ## Contributing
 

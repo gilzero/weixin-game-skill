@@ -39,7 +39,7 @@ interface InputModule {
   };
 }
 interface AudioModule {
-  createAudio(options?: { useWebAudioImplement?: boolean }): {
+  createAudio(options?: { useWebAudioImplement?: boolean; obeyMuteSwitch?: boolean }): {
     playMusic(src: string): void;
     pauseMusic(): void;
     stopMusic(): void;
@@ -67,6 +67,7 @@ interface AppServicesModule {
 const realDateNow = Date.now;
 afterEach(() => {
   Date.now = realDateNow;
+  Reflect.deleteProperty(globalThis, 'GameGlobal');
 });
 
 const finger = (identifier: number, clientX = 10, clientY = 10) => ({ identifier, clientX, clientY });
@@ -326,6 +327,28 @@ describe('audio', () => {
     const { wx, audio } = setUp();
     audio.loadSound('hit', 'hit.mp3', 1);
     expect(wx.audios[0]?.options).toEqual({ useWebAudioImplement: false });
+  });
+
+  test('useWebAudioImplement falls back when GameGlobal.isIOSHighPerformanceMode is active', () => {
+    const { wx } = installMockWx(devices.notchedIphone);
+    Object.assign(globalThis, { GameGlobal: { isIOSHighPerformanceMode: true } });
+    const audio = loadStarter<AudioModule>('js/platform/audio.js').createAudio({ useWebAudioImplement: true });
+    audio.loadSound('hit', 'hit.mp3', 1);
+    expect(wx.audios[0]?.options).toEqual({ useWebAudioImplement: false });
+    audio.destroy();
+  });
+
+  test('obeyMuteSwitch is forwarded to wx.setInnerAudioOption with a fail handler only when specified', () => {
+    const { wx, audio } = setUp();
+    expect(wx.innerAudioOptions).toEqual([]);
+    audio.destroy();
+
+    const configured = loadStarter<AudioModule>('js/platform/audio.js').createAudio({ obeyMuteSwitch: false });
+    expect(wx.innerAudioOptions).toHaveLength(1);
+    const option = wx.innerAudioOptions[0] as { obeyMuteSwitch?: boolean; fail?: unknown };
+    expect(option.obeyMuteSwitch).toBe(false);
+    expect(typeof option.fail).toBe('function');
+    configured.destroy();
   });
 
   test('playing an effect that was never loaded fails loudly', () => {

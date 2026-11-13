@@ -1,6 +1,6 @@
 # Social features and open data
 
-Last verified against the official docs: 2026-11-10.
+Last verified against the official docs: 2026-11-13.
 
 ## Friend leaderboards
 
@@ -125,8 +125,11 @@ Things that catch people out:
 - It has its own touch listeners. To scroll a list, handle touches inside the context, and convert coordinates yourself.
 - Images must be local or on WeChat's CDN. For your own server's images, download them in the main game and post the file
   path across.
-- Layout helpers: the official [minigame-canvas-engine](https://github.com/wechat-miniprogram/minigame-canvas-engine) is
-  recommended in the [leaderboard guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ranklist.md).
+- Layout helpers: the official [minigame-canvas-engine](https://github.com/wechat-miniprogram/minigame-canvas-engine)
+  (`Layout`) is recommended in the [leaderboard guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/ranklist.md).
+  Whenever `sharedCanvas` is drawn as a centered modal or sub-rect rather than full screen, post its on-screen logical
+  box (`x`, `y`, `width`, `height`, accounting for engine scale/letterboxing rather than DPR-multiplied buffer pixels)
+  and call `Layout.updateViewPort({ x, y, width, height })` so internal touch and `ScrollView` hit-testing align.
 - For group rankings inside the open data context, [`wx.getGroupCloudStorage`](https://developers.weixin.qq.com/minigame/dev/api/open-api/data/wx.getGroupCloudStorage.md)
   accepts either `shareTicket` or (from 3.8.8, preferred) `groupid` obtained in the main game via `wx.getGroupEnterInfo`.
 
@@ -144,6 +147,92 @@ Adding `openDataContext` changes the main canvas in the default mode:
 Base library 3.6.6 adds an alternative: `wx.getOpenDataContext({ sharedCanvasMode: 'screenCanvas' })` makes the shared
 canvas a separate on-screen layer above the main canvas, and lifts the main canvas restrictions. It needs no `drawImage`
 loop. The mode is global and cannot be switched once chosen.
+
+## Score storage and tournaments
+
+From base library 3.14.2 (Android and iOS WeChat 8.0.68+), [`wx.getRankManager`](https://developers.weixin.qq.com/minigame/dev/api/open-api/game-component/wx.getRankManager.md)
+backs both [score storage](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/storage-server/storage-score.md)
+and [tournament challenges](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/tournament.md) (`擂台赛`)
+using gameplay IDs (`scoreKey`) configured in MP (`运营功能管理 → 基础配置 → 游戏玩法ID设置`):
+
+```js
+/** @param {string} scoreKey @param {number} score */
+function syncBestScore(scoreKey, score) {
+  if (!wx.getRankManager || !Number.isFinite(score)) return;
+  const rankManager = wx.getRankManager();
+  rankManager.update({
+    scoreKey,
+    score,
+    success: () =>
+      rankManager.getScore({
+        scoreKeys: [scoreKey],
+        periodType: 4,
+        success: result => renderSyncedScores(result.scores),
+        fail: error => console.error('score query failed', error),
+      }),
+    fail: error => console.error('score upload failed', error),
+  });
+}
+```
+
+- A `scoreKey` chooses numeric, time or enum format; **its data type cannot be changed once active**. Optional
+  `subScoreKey` / `subScoreKeys` (`1–1000`, from 3.12.1) partition stages under one gameplay ID.
+- [`RankManager.getScore`](https://developers.weixin.qq.com/minigame/dev/api/open-api/game-component/RankManager.getScore.md)
+  is callback-only (`以 Promise 风格调用：不支持`), with `periodType` `1` daily, `2` weekly, `3` monthly, `4` all-time or
+  `5` latest. `minigame-api-typings@3.8.22` omits `res.scores` on `GetScoreSuccessCallback`, so narrow the callback type
+  in TypeScript projects. Keep anti-cheat validation on your server when rewards depend on a score.
+- Tournaments (`rankManager.createChallenge({ scoreKey })`, `abort`) require `wx.login` beforehand (challenge invites use
+  [Chat Tool mode](#chat-tool-mode)), four configured gift packs in MP, and allow at most one challenge creation per
+  `update` call. Claimed tournament rewards surface in `wx.onOfficialComponentsInfoChange`.
+
+## Chat tool mode
+
+[Chat Tool mode](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/chat-tool.md) (base library 3.7.12+,
+WeChat 8.0.56+) binds a game session to a single chat (`open_single_roomid`, `chatType` `1` or `2`) or group chat
+(`opengid`, `chatType` `3` or `4`) for room-scoped co-op, check-ins and [updatable group cards](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/share/updatable-message.md):
+
+```js
+/** @param {{activityId: string, templateId: string, title: string, path: string, participants?: string[]}} card */
+function shareChatToolCard(card) {
+  if (!wx.openChatTool || !wx.isChatTool || !wx.shareAppMessageToGroup) return;
+  const sendToBoundChat = () =>
+    wx.updateShareMenu({
+      withShareTicket: true,
+      isUpdatableMessage: true,
+      activityId: card.activityId,
+      useForChatTool: true,
+      chooseType: card.participants && card.participants.length > 0 ? 1 : 2,
+      participant: card.participants,
+      templateInfo: { templateId: card.templateId, parameterList: [{ name: 'member_count', value: '1' }] },
+      success: () =>
+        wx.shareAppMessageToGroup({
+          title: card.title,
+          path: card.path,
+          fail: error => console.error('group card share failed', error),
+        }),
+      fail: error => console.error('share menu setup failed', error),
+    });
+  if (wx.isChatTool()) {
+    sendToBoundChat();
+    return;
+  }
+  wx.openChatTool({
+    success: sendToBoundChat,
+    fail: error => console.error('chat tool open failed', error),
+  });
+}
+```
+
+- Pass `roomid` and `chatType` (decrypted from `wx.getGroupEnterInfo` before entering) to [`wx.openChatTool`](https://developers.weixin.qq.com/minigame/dev/api/chattool/wx.openChatTool.md)
+  to skip the chat picker; inside Chat Tool mode, read the bound room and `group_openid` by server-decrypting
+  [`wx.getChatToolInfo`](https://developers.weixin.qq.com/minigame/dev/api/chattool/wx.getChatToolInfo.md) (`encryptedData` + `iv`).
+  `minigame-api-typings@3.8.22` mistakenly types [`wx.isChatTool()`](https://developers.weixin.qq.com/minigame/dev/api/chattool/wx.isChatTool.md)
+  as `void` instead of `boolean`.
+- Pick room members with `wx.selectGroupMembers` (returns the peer directly in single chat) and render avatars/nicknames
+  in the open data context with `wx.getGroupMembersInfo`. `wx.notifyGroupMembers`, `wx.shareTextToGroup`,
+  `wx.shareImageToGroup`, `wx.shareEmojiToGroup` and `wx.shareVideoToGroup` send to the bound chat, `wx.exitChatTool`
+  leaves the sub-package/tool view, and server `setChatToolMsg` updates `useForChatTool` cards (`chooseType`: `1`
+  explicit `participant` list, `2` all room members).
 
 ## Sharing
 
@@ -228,10 +317,16 @@ Friend lists normally stay inside the open data context. Two documented exceptio
   `auth deny` and shows no dialog again, so offer `wx.openSetting` from a tap.
 - [Online status and invitations](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/user-status.md):
   `wx.getGameServerManager()`, then `login()` and `startStateService({ userState })` (at most 256 bytes) expose online
-  friends and invitations. Read the guide for the open data side before designing a lobby around it.
+  friends and invitations. `GameServerManager` is not supported in iOS High Performance mode; read the guide for the open
+  data side before designing a lobby around it.
+- [Send items to friends](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/share-gift.md) and
+  [WeChat Store gifts](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/WeChatGift.md): item gifts expire
+  after 48 hours with a configurable daily claim limit of 1–10, using either `wx.createPageManager` with the guide's
+  openlink or open-data `wx.getFriendSendGiftStatus` + `wx.sendGiftToFriend` (3.11.2+). Store gifts (`蓝包`) pair server
+  `present_receiver` (up to 500 items per order, 1 per user per order) with `wx.createStoreGift`.
 
-Both count as personal data for [privacy compliance](privacy-and-release.md#privacy). Never treat a client-supplied
-friend OpenID as proof of a relationship; verify on the server.
+Both friend-list exceptions count as personal data for [privacy compliance](privacy-and-release.md#privacy). Never treat
+a client-supplied friend OpenID as proof of a relationship; verify on the server.
 
 ## User profile
 
@@ -347,3 +442,24 @@ function createRecommendEntry(recommendOpenlink) {
 - From 3.8.6 `pageManager.on('destroy', result => ...)` reports `result.isRecommended`. The guide discourages item
   rewards for recommending, so thank the player rather than paying them.
 - Other built-in activity and feature pages use the same manager with their own openlinks.
+
+## Phone number, PC handoff, replays and Channels live
+
+- **Phone number verification:** certified non-individual accounts can call tap-gated, callback-only
+  [`wx.getPhoneNumber`](https://developers.weixin.qq.com/minigame/dev/api/open-api/user-info/wx.getPhoneNumber.md) for
+  [standard](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/getPhoneNumber.md) (`0.03` yuan/success) or
+  [realtime](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/getRealtimePhoneNumber.md) (`isRealtime: true`,
+  `0.04` yuan/success) verification, sharing a 1,000-call free trial quota (`errno === 1400001` when exhausted;
+  `phoneNumberNoQuotaToast: false` suppresses the default toast). Exchange the one-time 5-minute `res.code` (distinct
+  from `wx.login`) via server `phonenumber.getPhoneNumber`.
+- **Phone-to-PC handoff (`接力`, 2.14.4+):** set `wx.setHandoffQuery` in the main context, then invoke callback-only
+  [`wx.checkHandoffEnabled`](https://developers.weixin.qq.com/minigame/dev/api/share/wx.checkHandoffEnabled.md) and
+  tap-gated [`wx.startHandoff`](https://developers.weixin.qq.com/minigame/dev/api/share/wx.startHandoff.md) **inside the
+  open data context**, which is the only context that permits them.
+- **Gameplay replays (`游戏对局回放`, 2.8.0+):** [`wx.getGameRecorder`](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/game-recorder.md)
+  and `wx.createGameRecorderShareButton` record and share clips on supported phones. Always check
+  `recorder.isFrameSupported()` first; DevTools and HarmonyOS do not support it, and recording adds noticeable CPU load.
+- **Channels live (`视频号直播`, 2.19.0+):** the [Channels live guide](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/channels-live.md)
+  documents `checkGameLiveEnabled` (`res.isEnabled`), tap-gated `startGameLive` and `onGameLiveStateChange` (`menuClick`
+  returns `{ query }`; `start` includes `feedId` from 2.19.2) on `wx`. Both the API sidebar index and
+  `minigame-api-typings@3.8.22` omit these three names, so guard them dynamically on `wx` before calling.

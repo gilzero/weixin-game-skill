@@ -1,6 +1,6 @@
 # Login, privacy and release
 
-Last verified against the official docs: 2026-11-10. Compliance rules change, so
+Last verified against the official docs: 2026-11-13. Compliance rules change, so
 [re-read the live pages](../SKILL.md#keep-this-current) before relying on them.
 
 ## Login
@@ -78,28 +78,77 @@ wx.requirePrivacyAuthorize({
 });
 ```
 
-- [`wx.onNeedPrivacyAuthorization`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.onNeedPrivacyAuthorization.md)
-  and [`wx.requirePrivacyAuthorize`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.requirePrivacyAuthorize.md)
+- [`wx.onNeedPrivacyAuthorization`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.onNeedPrivacyAuthorization.md),
+  [`wx.requirePrivacyAuthorize`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.requirePrivacyAuthorize.md)
+  and callback-only [`wx.getPrivacySetting`](https://developers.weixin.qq.com/minigame/dev/api/open-api/privacy/wx.getPrivacySetting.md)
   need base library 2.32.3. `wx.onNeedPrivacyAuthorization` is an overwrite listener (a second registration replaces the
   first), so register it once centrally and coalesce concurrent `resolve` callbacks as shown above.
+- To render the exact contract name (`privacyContractName`) or check whether consent is needed (`needAuthorization`,
+  including after adding new data categories in MP) before opening a custom prompt, query `wx.getPrivacySetting` with
+  callbacks:
+
+```js
+function checkPrivacyBeforePrompt() {
+  if (!wx.getPrivacySetting) {
+    startFeatureThatUsesPersonalData();
+    return;
+  }
+  // Callback-only API: omitting callbacks returns undefined rather than a Promise.
+  wx.getPrivacySetting({
+    success: result => {
+      setPrivacyContractTitle(result.privacyContractName);
+      if (!result.needAuthorization) {
+        startFeatureThatUsesPersonalData();
+        return;
+      }
+      wx.requirePrivacyAuthorize({
+        success: () => startFeatureThatUsesPersonalData(),
+        fail: () => continueWithoutPersonalData(),
+      });
+    },
+    fail: error => {
+      console.error('privacy setting query failed', error);
+      continueWithoutPersonalData();
+    },
+  });
+}
+```
+
 - A policy link must open through `wx.openPrivacyContract`.
 - `agree` and `disagree` must follow a real tap.
 - If you register the listener, you must call `resolve`, or the waiting API never finishes.
 - Refusal makes those APIs fail with `API:fail privacy permission is not authorized`. Keep the game playable when a player
   refuses.
+- **Static bundle scan (`代码静态扫描`) trap:** upload and review inspect bundled JS statically — including third-party
+  analytics/ad SDKs and unstripped engine adapters — for privacy-gated calls (`wx.getClipboardData`, `wx.getFuzzyLocation`,
+  `wx.getLocation`, `wx.chooseImage`, `wx.chooseMedia`, `wx.getRecorderManager`, `wx.startAccelerometer`, `wx.getUserInfo`).
+  Dead references that never run at runtime still trigger `未声明隐私接口` review rejections unless stripped from the
+  build or declared in `用户隐私保护指引` and gated behind `wx.requirePrivacyAuthorize`.
 - Other permissions, such as `scope.userFuzzyLocation`, follow the
   [authorization guide](https://developers.weixin.qq.com/minigame/dev/guide/base-ability/authorize.md).
 
 Use one active authorization UI for concurrent requests, resolve every waiting request after the player's decision,
 and recheck requirements when the policy changes. Refusal must not leave pending promises or block unrelated play.
 
-## User content
+## User content, anti-cheat and code hardening
 
-The [security guide](https://developers.weixin.qq.com/minigame/dev/guide/security/security.md) requires checking user
-text, images and audio/video before public display. Custom names, chat and uploaded avatars need server-side content
-checks and a pending/rejected state. Read the linked backend API docs for the selected media; keep credentials on the
-server. Privacy consent does not substitute for content moderation. Provide review/report handling where the feature
-needs it; a fixed set of built-in names and avatars avoids accepting arbitrary content in a simple prototype.
+- **UGC moderation:** the [security guide](https://developers.weixin.qq.com/minigame/dev/guide/security/security.md)
+  requires checking user text, images and audio/video before public display. Use the mini-game server endpoints —
+  [`gameMsgSecCheck`](https://developers.weixin.qq.com/minigame/dev/api-backend/wxa-sec-check/api_gamemsgseccheck.md)
+  (`POST /wxa/game/content_spam/msg_sec_check`, `version: 2`, `scene` `1–5`, `<= 2500` UTF-8 chars), synchronous image
+  [`gamesecurity.mediaCheck`](https://developers.weixin.qq.com/minigame/dev/api-backend/wxa-sec-check/api_gamesecurity.mediacheck.md)
+  (`POST /wxa/game/content_spam/media_check_sync`, `version: 2`, `media_type: 2`) or async audio/image
+  [`mediaCheckAsync`](https://developers.weixin.qq.com/minigame/dev/api-backend/wxa-sec-check/api_mediacheckasync.md)
+  (`<= 10MB`, 2,000/min, 200,000/day) — and hold content in a pending/rejected state until cleared. Privacy consent does
+  not substitute for content moderation; a fixed set of built-in names and avatars avoids UGC altogether in a prototype.
+- **Anti-cheat signals:** your server can query platform-detected cheat records via
+  [`getCheatData`](https://developers.weixin.qq.com/minigame/dev/api-backend/safety-control-capability/api_getcheatdata.md)
+  (`GET /wxa/game/content_spam/get_cheat_data`, `duration_days` `1–7`, `limit <= 1000`) alongside user risk rank (`0–4`).
+- **JS and memory hardening:** DevTools 1.06.2401020+ and CI offer [`游戏深度保护`](https://developers.weixin.qq.com/minigame/dev/devtools/codeprotect.md)
+  for JS files (forbids `eval`, `with`, TDZ reads before `let`/`const`, `const` reassignment, and branching on
+  `fn.name`/`fn.toString`; emits `.map` files for WE分析 symbolication) and
+  [memory protection](https://developers.weixin.qq.com/minigame/dev/devtools/memoryprotect.md) for sensitive JS or Unity
+  variables.
 
 ## HarmonyOS (`ohos`)
 
@@ -138,7 +187,10 @@ from `onUpdateReady`, as the starter does. For a required update, raise the mini
 
 - [ ] `project.config.json` has the real AppID, not `touristappid` or a test one.
 - [ ] `urlCheck` is on, and every domain is registered in the MP console.
-- [ ] `minified` is on, and the main package is under 4MB. `cli preview --info-output info.json` reports sizes.
+- [ ] `minified` is on, and the main package is under 4MB. `cli preview --info-output info.json` reports sizes. Keep
+      build-affecting flags in [`project.config.json`](https://developers.weixin.qq.com/minigame/dev/devtools/projectconfig.md)
+      (never `project.private.config.json`), and note that [`uglifyFileName`](https://developers.weixin.qq.com/minigame/dev/devtools/codecompile.md)
+      breaks JS files `> 500KB` that call `require` or use dynamic `require` paths.
 - [ ] Every asset extension is on the upload whitelist.
 - [ ] Minimum base library is set in the MP console to match the APIs used.
 
@@ -154,15 +206,23 @@ from `onUpdateReady`, as the starter does. For a required update, raise the mini
 
 **Platform and compliance**
 
-- [ ] [Version review and mini program filing](https://developers.weixin.qq.com/minigame/introduction/guide/index.md)
-      (小程序备案) are complete, with exact entity and game-name parity across MP, filing and software copyright (`软著`).
-      Company entities must complete WeChat certification before filing.
+- [ ] [Version review](https://developers.weixin.qq.com/minigame/introduction/guide/bbsh.md) and
+      [mini program filing](https://developers.weixin.qq.com/minigame/introduction/guide/index.md) (小程序备案) are
+      complete, with exact entity and game-name parity across MP, filing and software copyright (`软著`). Company
+      entities must complete WeChat certification before filing, configure the MP age-rating badge
+      ([`适龄提示`](https://developers.weixin.qq.com/minigame/introduction/guide/slts.md) `8+` / `12+` / `16+`, required
+      even if drawn in-game), and supply the `苹果开发者账号` review field (email format accepted). Expedited review
+      (`加急审核`) applies only to post-launch updates with `> 5,000` cumulative users (2 quotas per quarter).
 - [ ] Plan for the guide's estimated 13–37 working days for IAA or 9–22 for IAP; these are estimates, not release SLAs.
+- [ ] For server-generated [mini-program codes](https://developers.weixin.qq.com/minigame/dev/guide/open-ability/qr-code.md),
+      use `getUnlimitedQRCode` (`scene <= 32` chars, 5,000/min, released builds only) rather than `getQRCode` or
+      `createQRCode`, which share a 100,000 lifetime cap.
 - [ ] IAP stores clearly display virtual-currency exchange ratios; for iOS payment, the MP agreement, signed orders,
       reconciliation and refund handling are verified.
 - [ ] Any public user content passes the applicable security checks.
 
-- [ ] The privacy policy is filled in, accessible via `wx.openPrivacyContract`, and matches what the game collects.
+- [ ] The privacy policy is filled in, accessible via `wx.openPrivacyContract`, matches what the game collects, and
+      third-party SDK bundles have been audited or stripped of unused privacy-gated `wx` calls.
 - [ ] `wx.onError` and `wx.onUnhandledRejection` are registered, and optional async `wx` calls handle `fail`/`.catch`.
 - [ ] Subscription, navigation and settings prompts fire from `wx.onTouchEnd`, and no `wx.login` or `wx.getSetting`
       call repeats on a timer.

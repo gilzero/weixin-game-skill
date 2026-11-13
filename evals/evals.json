@@ -206,6 +206,34 @@
         "States that adding to the desktop cannot be listened for and that the only signal is a later launch whose scene is 1023, without inventing an add-to-desktop callback",
         "Uses SYS_MSG_TYPE_* system message types (at most three per call) and handles accept/reject/ban results without assuming acceptance"
       ]
+    },
+    {
+      "id": 14,
+      "name": "rankmanager-chattool-and-highperf",
+      "prompt": "我们的微信小游戏开启了 iOSHighPerformance，现在有四个问题：1）上线了 PVRTC 压缩纹理包后在 iPhone 高性能模式下贴图全挂了；2）隐私预检写了 `const s = await wx.getPrivacySetting()`，得分存档写了 `const r = await wx.getRankManager().getScore({ scoreKeys: ['stage'], periodType: 4 })`，结果拿到的都是 undefined；3）HUD 照搬官方文档示例写了 `wx.getOfficialComponentsInfo().notificationComponentInfo.isShow` 判断官方浮窗避让，从来不生效；4）想接入聊天工具模式发群动态消息卡片，并在服务端调微信接口（多实例部署老是互相顶掉 access_token）。请输出 outputs/progress-and-social.js 和 outputs/notes.md。",
+      "expected_output": "Replaces PVRTC with ASTC for iOS High Performance, switches getPrivacySetting and RankManager.getScore to callbacks reading res.scores, uses notificationComponentInfo.isVisible, wires Chat Tool updatable messages and recommends getStableAccessToken.",
+      "files": [],
+      "expectations": [
+        "Explains the documentation conflict that iOS High Performance mode drops PVRTC and ETC (leaving ASTC and ETC1 only) despite PVRTC appearing in the general texture guide",
+        "Explains wx.getPrivacySetting and RankManager.getScore do not support Promise-style calls, passes success/fail callbacks, and reads res.scores plus privacyContractName/needAuthorization",
+        "Reads notificationComponentInfo.isVisible rather than the broken official sample property isShow, and cleans up wx.onOfficialComponentsInfoChange with wx.offOfficialComponentsInfoChange",
+        "Uses wx.isChatTool / wx.openChatTool with wx.updateShareMenu (useForChatTool: true, activityId, chooseType) and wx.shareAppMessageToGroup for Chat Tool updatable cards",
+        "Recommends POST /cgi-bin/stable_token (getStableAccessToken with force_refresh: false) on the server so multi-instance refreshes do not invalidate live tokens"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "engine-port-audit-and-device-pitfalls",
+      "prompt": "我们准备把一款 3D 游戏（也有一个 Three.js 小玩法版本）发到微信小游戏，真机测试和提审遇到了五个坑：1）Unity/团结转换出来的首包 webgl.data 巨大、2D UI 贴图内存翻倍、启动在 ShaderVariantCollection.WarmUp 卡死 6 秒；2）Three.js 版直接塞了官方 weapp-adapter 报 instanceof HTMLCanvasElement 和 preserveDrawingBuffer 校验问题，而且开了全局 preserveDrawingBuffer: true 后低端机掉帧严重，不开的话异步调 await canvas.toTempFilePath() 截出来的海报又是黑屏且返回 undefined；3）iPhone 打开静音拨片后背景音乐没声音（但音效用了 useWebAudioImplement: true 反而有声）；4）开放数据域用 minigame-canvas-engine (Layout) 画居中弹窗排行榜，列表完全滑不动也点不中；5）游戏代码里根本没调剪贴板或定位，提审却被代码静态扫描打回说“未声明隐私接口”。请输出 outputs/audit-fixes.md 给出每个问题的根因和工程改法。",
+      "expected_output": "Covers Unity/Tuanjie WXAssetBundle + texture/shader/BGM rules, three-platformize + same-frame/offscreen poster capture without permanent preserveDrawingBuffer, wx.setInnerAudioOption obeyMuteSwitch and WebAudio caveat, Layout.updateViewPort logical screen box, and stripping/declaring third-party SDK privacy APIs.",
+      "files": [],
+      "expectations": [
+        "Advises emptying Unity Resources/ to a minimal bootstrap scene and loading assets via WXAssetBundle with AppendHashToAssetBundle (or DataFileSubpackage/AutoStreaming), disabling texture Read/Write Enabled and 2D/UI Mipmaps, targeting explicit WebGL 2.0 rather than Auto Graphics API, and replacing synchronous ShaderVariantCollection.WarmUp with progressive/async warmup",
+        "Recommends a game-targeted adapter such as three-platformize over bare weapp-adapter, avoids permanent WebGL preserveDrawingBuffer: true, notes Canvas.toTempFilePath is callback-only, and captures screenshots synchronously right after rendering that frame or draws posters on an offscreen 2D canvas",
+        "Explains iPhone hardware silent-switch muting defaults obeyMuteSwitch to true on InnerAudioContext, fixes it via wx.setInnerAudioOption({ obeyMuteSwitch: false, fail }), and notes wx.setInnerAudioOption does not apply to WebAudioContext or useWebAudioImplement: true",
+        "Explains minigame-canvas-engine requires Layout.updateViewPort({ x, y, width, height }) with the modal's on-screen logical coordinates and dimensions (accounting for scale/letterboxing rather than DPR buffer pixels) so touch/ScrollView hit-testing aligns",
+        "Explains WeChat static bundle scanning flags dead privacy-gated wx.* calls (such as wx.getClipboardData or wx.getLocation) inside third-party SDKs or unstripped adapters, requiring either stripping unused calls before upload or declaring them in the MP privacy policy behind wx.requirePrivacyAuthorize"
+      ]
     }
   ]
 }

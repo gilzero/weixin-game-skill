@@ -470,3 +470,156 @@ test('recommend example tolerates old clients, shows only after loading and surf
   expect(calls).toEqual(['load:stale-link']);
   expect(errors.length).toBeGreaterThanOrEqual(1);
 });
+
+test('official component watcher reads isVisible, handles wrapped or direct updates and detaches cleanly', () => {
+  const rects: unknown[] = [];
+  const badges: number[] = [];
+  let listener: ((event: unknown) => void) | undefined;
+  let detached = false;
+  const rect = { left: 8, top: 8, right: 120, bottom: 40, width: 112, height: 32 };
+  const { watchOfficialComponents } = example<{ watchOfficialComponents(): () => void }>(
+    'rendering-and-layout.md',
+    'function watchOfficialComponents',
+    'watchOfficialComponents',
+    {
+      getOfficialComponentsInfo: () => ({
+        notificationComponentInfo: { name: 'notice', isVisible: true, boundingClientRect: rect },
+        rewardsComponentInfo: { name: 'rewards', canReceiveGiftCount: 2, canReceiveFriendGiftCount: 1 },
+      }),
+      onOfficialComponentsInfoChange: (cb: (event: unknown) => void) => {
+        listener = cb;
+      },
+      offOfficialComponentsInfoChange: (cb: (event: unknown) => void) => {
+        if (listener === cb) detached = true;
+      },
+    },
+    [],
+    {
+      reserveOfficialBannerRect: (value: unknown) => rects.push(value),
+      updateOfficialRewardBadge: (count: number) => badges.push(count),
+    },
+  );
+  const stop = watchOfficialComponents();
+  expect(rects).toEqual([rect]);
+  expect(badges).toEqual([3]);
+  listener?.({
+    OfficialComponentsInfo: {
+      notificationComponentInfo: { name: 'notice', isVisible: false, boundingClientRect: rect },
+      rewardsComponentInfo: { name: 'rewards', canReceiveGiftCount: 0, canReceiveFriendGiftCount: 4 },
+    },
+  });
+  expect(rects).toEqual([rect, null]);
+  expect(badges).toEqual([3, 4]);
+  stop();
+  expect(detached).toBe(true);
+});
+
+test('score storage example updates before querying all-time best and ignores non-finite scores', () => {
+  const calls: string[] = [];
+  const synced: unknown[] = [];
+  const { syncBestScore } = example<{ syncBestScore(key: string, score: number): void }>(
+    'social-and-open-data.md',
+    'function syncBestScore',
+    'syncBestScore',
+    {
+      getRankManager: () => ({
+        update: ({ scoreKey, score, success }: { scoreKey: string; score: number; success(): void }) => {
+          calls.push(`update:${scoreKey}:${score}`);
+          success();
+        },
+        getScore: ({
+          scoreKeys,
+          periodType,
+          success,
+        }: {
+          scoreKeys: string[];
+          periodType: number;
+          success(res: { scores: Record<string, { score: number; timestamp: number }> }): void;
+        }) => {
+          calls.push(`get:${scoreKeys.join(',')}:${periodType}`);
+          success({ scores: { stage: { score: 42, timestamp: 1700000000 } } });
+        },
+      }),
+    },
+    [],
+    { Number, renderSyncedScores: (scores: unknown) => synced.push(scores) },
+  );
+  syncBestScore('stage', Number.NaN);
+  expect(calls).toEqual([]);
+  syncBestScore('stage', 42);
+  expect(calls).toEqual(['update:stage:42', 'get:stage:4']);
+  expect(synced).toEqual([{ stage: { score: 42, timestamp: 1700000000 } }]);
+});
+
+test('chat tool card helper opens Chat Tool when needed and sets chooseType from participant list', () => {
+  const sequence: string[] = [];
+  const menus: Record<string, unknown>[] = [];
+  let inChatTool = false;
+  const { shareChatToolCard } = example<{
+    shareChatToolCard(card: {
+      activityId: string;
+      templateId: string;
+      title: string;
+      path: string;
+      participants?: string[];
+    }): void;
+  }>('social-and-open-data.md', 'function shareChatToolCard', 'shareChatToolCard', {
+    isChatTool: () => inChatTool,
+    openChatTool: ({ success }: { success(): void }) => {
+      sequence.push('openChatTool');
+      inChatTool = true;
+      success();
+    },
+    updateShareMenu: (options: Record<string, unknown> & { success(): void }) => {
+      sequence.push('updateShareMenu');
+      menus.push(options);
+      options.success();
+    },
+    shareAppMessageToGroup: ({ title }: { title: string }) => sequence.push(`share:${title}`),
+  });
+  shareChatToolCard({ activityId: 'act-1', templateId: 'tpl-1', title: '组队', path: '/game' });
+  expect(sequence).toEqual(['openChatTool', 'updateShareMenu', 'share:组队']);
+  expect(menus[0]?.chooseType).toBe(2);
+  shareChatToolCard({
+    activityId: 'act-2',
+    templateId: 'tpl-1',
+    title: '点名',
+    path: '/game',
+    participants: ['g1'],
+  });
+  expect(sequence).toEqual(['openChatTool', 'updateShareMenu', 'share:组队', 'updateShareMenu', 'share:点名']);
+  expect(menus[1]?.chooseType).toBe(1);
+});
+
+test('privacy precheck uses callback-only getPrivacySetting and skips prompt when already authorized', () => {
+  const events: string[] = [];
+  let needAuth = false;
+  const { checkPrivacyBeforePrompt } = example<{ checkPrivacyBeforePrompt(): void }>(
+    'privacy-and-release.md',
+    'function checkPrivacyBeforePrompt',
+    'checkPrivacyBeforePrompt',
+    {
+      getPrivacySetting: ({
+        success,
+      }: {
+        success(res: { needAuthorization: boolean; privacyContractName: string }): void;
+      }) => success({ needAuthorization: needAuth, privacyContractName: '《小游戏隐私保护指引》' }),
+      requirePrivacyAuthorize: ({ success }: { success(): void }) => {
+        events.push('prompt');
+        success();
+      },
+    },
+    [],
+    {
+      setPrivacyContractTitle: (name: string) => events.push(`title:${name}`),
+      startFeatureThatUsesPersonalData: () => events.push('start'),
+      continueWithoutPersonalData: () => events.push('fallback'),
+    },
+  );
+  checkPrivacyBeforePrompt();
+  expect(events).toEqual(['title:《小游戏隐私保护指引》', 'start']);
+  events.length = 0;
+  needAuth = true;
+  checkPrivacyBeforePrompt();
+  expect(events).toEqual(['title:《小游戏隐私保护指引》', 'prompt', 'start']);
+});

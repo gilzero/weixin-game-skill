@@ -54,3 +54,11 @@ test('signed payment strings are checked using the documented wire contract', ()
   expect(errors.some(error => error.snippet === '0')).toBe(false);
   expect(errors.some(error => error.snippet === '1')).toBe(true);
 });
+
+test('RankManager.getScore scores map and wx.isChatTool boolean return match live docs', () => {
+  const snippets = [
+    "wx.getRankManager().getScore({scoreKeys: ['s1'], periodType: 4, success: res => console.log(res.scores.s1?.score)});",
+    'const active = wx.isChatTool(); if (active) wx.exitChatTool({});',
+  ].map((code, index) => ({ code, language: 'js', source: String(index) }));
+  expect(checkSnippets(snippets)).toEqual([]);
+});

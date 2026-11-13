@@ -56,8 +56,9 @@ Use `bun`, never npm, pnpm or yarn.
   a test pins this. Do not move it to touch start or defer it.
 - Starter JS uses strict parameter types via JSDoc. DOM types describe Canvas 2D only, never authorize browser globals.
 - Snippets reject syntax, missing names and resolved-type errors. Omitted application helpers have explicit contracts
-  in `scripts/snippet-globals.d.ts`; never restore blanket diagnostic suppression. The checker narrowly corrects the
-  upstream 3.8.22 privacy resolver and signed-payment string types from live docs.
+  in `scripts/snippet-globals.d.ts`; never restore blanket diagnostic suppression. The checker narrowly corrects four
+  upstream 3.8.22 types contradicted by live docs: privacy resolver, signed-payment string, `RankManager.getScore`
+  `res.scores` and `wx.isChatTool()` boolean return.
 - API evals supply resources and fixtures as context, check generated syntax and save files without executing them. They do not prove
   host activation, progressive disclosure, starter copying or device behavior; model grades need review.
 - Do not run `cli preview` or `cli upload` without asking, because both send the package to WeChat.
@@ -78,9 +79,10 @@ Markdown and empty community articles are unavailable evidence (exit 2), never d
 To cite an API as absent from the docs, add it to `API_NAMES_NOT_IN_INDEX`. The check then warns if it ever appears.
 
 Validators accept `#` headings and Setext `===` titles (the scene list). A page with no heading at all, such as
-`minigame-testtool/overview`, reads as unavailable evidence (exit 2), so cite a neighbouring page that has one. Pages
-outside the sidebar index (`guide/base-ability/touch-limit`, `guide/performance/api-frequency`) are reachable by `read`
-and by fixed `find` aliases only, and the sidebar drift check does not watch them; their registered facts do.
+`minigame-testtool/overview` or `devtools/notsupport`, reads as unavailable evidence (exit 2), so cite a neighbouring
+page that has one. Pages outside the sidebar index (`guide/base-ability/touch-limit`, `guide/performance/api-frequency`,
+`guide/open-ability/user-encryptkey`) are reachable by `read` and by fixed `find` aliases only, and the sidebar drift
+check does not watch them; their registered facts do.
 
 ## Releasing
 
@@ -88,18 +90,22 @@ Bump `version` in `.claude-plugin/plugin.json`, `metadata.version` in `SKILL.md`
 brief change summary in [README.md](README.md#changelog) and below (keeping both `README.md` and `AGENTS.md` within 150
 lines). A test keeps all three version fields in step. Claude Code only offers an update when the plugin version changes.
 
-- **Current version (`2.2.0`, `docs-verified: 2026-11-10`):** Added tap-gated APIs (`touch-limit`), launch scenes and
-  add-to-desktop, poster sharing, `wx.getRelationFriendList`, system subscription types, `wx.createPageManager`, video,
-  official plugins, periodic update, `SocketTask`/HTTP/2 guidance, API rate limits, EmscriptenGLX, phone profiling,
-  staged release, source maps and `miniprogram-ci`; grouped the capability map into four tables; grew the fact registry
-  from 77 to 130; taught both validators Setext titles; updated typings to 3.8.22 (same two corrections still needed).
+- **Current version (`2.3.0`, `docs-verified: 2026-11-13`):** Added callback-only async API rules, `RankManager` score
+  storage and tournaments (`3.14.2+`), Chat Tool mode and updatable cards (`3.7.12+`), official floating components
+  (`wx.getOfficialComponentsInfo` `isVisible` vs sample `isShow` conflict), iOS High Performance mode rules and `PVRTC`
+  texture conflict, starter `GameGlobal.isIOSHighPerformanceMode` fallback and `obeyMuteSwitch` option, offline mode
+  (`3.16.0+`), encrypted HTTPS channels (`user-encryptkey`), Recharge Center (`PayChannel: 1`), `getStableAccessToken`,
+  mini-game UGC/anti-cheat APIs, JS/Unity code hardening, `WXWeakRef`, on-device AI/VisionKit, `wx-doc.sh` aliases, and
+  ecosystem guidance for Unity/Tuanjie (`WXAssetBundle`), Cocos 3.8, LayaAir 3, `three-platformize`/WebGL
+  `preserveDrawingBuffer`, `Layout.updateViewPort`, and MP static privacy scans; grew the fact registry from 130 to 171.
 
 ## Known gaps
 
 - Official DevTools Skills document mini programs; this repo has not verified their game automation support.
 - Engine routing and new evaluation fixtures have not been validated with a real engine export or live model comparison.
-- The 2.2.0 additions (tap-gated calls, `SocketTask`, poster sharing, `wx.createPageManager`,
-  `wx.getRelationFriendList`) are verified against docs and mocks only, and eval task 13 has no live model score.
+- The 2.2.0 and 2.3.0 additions (tap-gated calls, `SocketTask`, poster sharing, `wx.createPageManager`,
+  `wx.getRelationFriendList`, `RankManager`, Chat Tool, official overlays, `wx.getPrivacySetting`, `obeyMuteSwitch`) are
+  verified against docs and mocks only, and eval tasks 13–15 have no live model score.
 - SkillHub is a possible distribution channel; this plugin has not been submitted or listed there.
 - Codex, Cursor and Antigravity were only checked for discovering the skill from `.agents/skills/`. Evals ran on Claude only.
 - `scripts/wx-doc.sh` needs `sh`. Without it, agents can use the `.md` doc URLs described in `SKILL.md`.

@@ -27,6 +27,12 @@ cat <<'HTML'
 <a href="/minigame/dev/guide/open-ability/share/share-image.html">海报分享</a>
 <a href="/minigame/dev/guide/base-ability/scene.html">场景值</a>
 <a href="/minigame/dev/guide/base-ability/code-beta.html">游戏灰度</a>
+<a href="/minigame/dev/guide/open-ability/chat-tool.html">聊天工具</a>
+<a href="/minigame/dev/guide/open-ability/storage-server/storage-score.html">存档服务</a>
+<a href="/minigame/dev/devtools/codeprotect.html">游戏深度保护插件</a>
+<a href="/minigame/dev/api/offline-mode/wx.onOfflineModeStateChange.html">wx.onOfflineModeStateChange</a>
+<a href="/minigame/dev/api/ui/menu/wx.getOfficialComponentsInfo.html">wx.getOfficialComponentsInfo</a>
+<a href="/minigame/dev/api-backend/access-token/api_getstableaccesstoken.html">获取稳定版接口调用凭据</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">undefined</a>
 <a href="/minigame/dev/api/render/gpu/wx.getGPU.html">wx.getGPU</a>
 HTML
@@ -52,6 +58,13 @@ HTML
       ['灰度发布', 'guide/base-ability/code-beta'],
       ['tap-gated', 'guide/base-ability/touch-limit'],
       ['限频', 'guide/performance/api-frequency'],
+      ['加密通道', 'guide/open-ability/user-encryptkey'],
+      ['chattool', 'guide/open-ability/chat-tool'],
+      ['得分存档', 'guide/open-ability/storage-server/storage-score'],
+      ['加固', 'devtools/codeprotect'],
+      ['离线模式', 'api/offline-mode/wx.onOfflineModeStateChange'],
+      ['官方组件', 'api/ui/menu/wx.getOfficialComponentsInfo'],
+      ['stable_token', 'api-backend/access-token/api_getstableaccesstoken'],
     ]) {
       const run = Bun.spawnSync(['sh', join(skillRoot, 'scripts/wx-doc.sh'), 'find', query ?? ''], {
         env: { ...process.env, TMPDIR: root, PATH: `${bin}:${process.env.PATH}` },
