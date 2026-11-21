@@ -9,16 +9,18 @@ covers what it is and how to install it.
 - Work from the target game project, not this skill-source repository, unless installation here was requested.
 - Claude Code plugin route: `claude plugin marketplace add gilzero/weixin-game-skill`, then
   `claude plugin install weixin-game@weixin-game-skill --scope project`; use `--scope user` only for a user-wide request.
-- Skill-only route: `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a <agent> -y`, with
-  `<agent>` set to `codex`, `claude-code`, `antigravity` or `cursor`. Add `-g` only for user-wide scope.
+- Skill-only route: `bunx skills add gilzero/weixin-game-skill`. If prompted, choose the target agent. For unattended
+  installs, pass `--skill weixin-game -a <agent> -y` with `codex`, `claude-code`, `antigravity` or `cursor` as `<agent>`.
+  Add `-g` only for user-wide scope.
 - Use one route per agent. Do not duplicate an installed plugin with a manual copy of the same skill.
 - Preserve the complete skill directory. Codex, Antigravity and Cursor use project `.agents/skills/`;
   Claude Code uses `.claude/skills/` for standalone skills. Let the installer resolve global paths.
-- Verify with `bunx skills list` (`-g` for global scope) or Claude Code's `/plugin`, then check actual host discovery.
-  In Codex CLI/IDE, use `/skills` or `$weixin-game`. Report the resolved skill path and restart if discovery is stale.
+- Verify `weixin-game` is listed by `bunx skills list -a <agent>` (`-g` for global scope) or Claude Code's `/plugin`.
+  Ask the host to load the skill and confirm the installed directory includes `SKILL.md`, `references/`, `scripts/` and
+  `assets/`. In Codex CLI/IDE, use `/skills` or `$weixin-game`. Report the resolved path and restart if discovery is stale.
 - Installing this skill does not install WeChat DevTools, select an AppID, provision a backend or authorize uploads.
 
-The copyable installation prompt lives in [README.md](README.md#install); keep that as the user-facing example.
+The one-line install command and copyable agent prompt live in [README.md](README.md#install).
 
 ## Commands
 
@@ -90,7 +92,8 @@ Bump `version` in `.claude-plugin/plugin.json`, `metadata.version` in `SKILL.md`
 brief change summary in [README.md](README.md#changelog) and below (keeping both `README.md` and `AGENTS.md` within 150
 lines). A test keeps all three version fields in step. Claude Code only offers an update when the plugin version changes.
 
-- **Current version (`2.3.0`, `docs-verified: 2026-11-13`):** Added callback-only async API rules, `RankManager` score
+- **Current version (`2.3.1`, `docs-verified: 2026-11-13`):** Added one-line install, verification and update guidance.
+- **2.3.0:** Added callback-only async API rules, `RankManager` score
   storage and tournaments (`3.14.2+`), Chat Tool mode and updatable cards (`3.7.12+`), official floating components
   (`wx.getOfficialComponentsInfo` `isVisible` vs sample `isShow` conflict), iOS High Performance mode rules and `PVRTC`
   texture conflict, starter `GameGlobal.isIOSHighPerformanceMode` fallback and `obeyMuteSwitch` option, offline mode

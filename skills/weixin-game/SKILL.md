@@ -16,7 +16,7 @@ description: >-
   WeChat. Includes Cocos, LayaAir and Unity/Tuanjie (WXAssetBundle) exports targeting WeChat; preserve their engine workflow.
 license: MIT
 metadata:
-  version: '2.3.0'
+  version: '2.3.1'
   docs-verified: '2026-11-13'
 ---
 

@@ -7,7 +7,13 @@ platform rules, a starter that runs with no build step, and a way to read the cu
 
 ## Install
 
-Install the skill into the game project you want the agent to work on. The CLI examples require Git and Bun.
+From your game project's root, run one command. If prompted, choose your coding agent.
+
+```bash
+npx skills add gilzero/weixin-game-skill
+```
+
+With Bun, use `bunx skills add gilzero/weixin-game-skill`. Add `-g` to install for all your projects.
 
 **Ask your AI coding agent to install it:**
 
@@ -28,10 +34,10 @@ claude plugin marketplace add gilzero/weixin-game-skill
 claude plugin install weixin-game@weixin-game-skill --scope project
 ```
 
-Use `--scope user` instead for all projects. For a skill-only installation without the plugin, use the Claude Code row below.
+Use `--scope user` instead for all projects. Choose this route if you want Claude Code to manage the skill as a plugin.
 
-**Codex, Antigravity, Cursor, or Claude Code without plugins:** run the matching
-[skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) command from your game project's root:
+**Install without prompts:** run the matching command from your game project's root. Use `npx` in place of `bunx`
+if you use Node.js. See the [skills CLI reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md).
 
 | AI coding agent | Project installation command                                                      |
 | --------------- | --------------------------------------------------------------------------------- |
@@ -40,22 +46,18 @@ Use `--scope user` instead for all projects. For a skill-only installation witho
 | Antigravity     | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a antigravity -y` |
 | Cursor          | `bunx skills add gilzero/weixin-game-skill --skill weixin-game -a cursor -y`      |
 
-Choose one route per agent to avoid duplicate discovery. Add `-g` for a user-wide skills CLI installation; let the CLI
-choose the agent's global path. Project installs use `.agents/skills/` for Codex, Antigravity and Cursor, and
-`.claude/skills/` for Claude Code, as listed in the [agent directory table](https://github.com/vercel-labs/skills/blob/main/docs/agents.md).
+Choose one route per agent to avoid duplicate discovery. See the [agent directory table](https://github.com/vercel-labs/skills/blob/main/docs/agents.md) for install locations.
 
-**Manual/offline:** obtain this repository, then copy the whole `skills/weixin-game/` directory into
+**Manual/offline:** copy the whole `skills/weixin-game/` directory, including its references, scripts and assets, into
 `your-game/.agents/skills/` for Codex, Cursor or Antigravity, or `your-game/.claude/skills/` for Claude Code.
-Keep `SKILL.md`, `references/`, `scripts/` and `assets/` together; copying only `SKILL.md` breaks the skill.
 
-**Verify:** use `bunx skills list` (add `-g` for global installs), or Claude Code's `/plugin` for its plugin route.
-Then open the game project in your agent and ask it to use `weixin-game` and identify the loaded `SKILL.md` path.
+**Verify:** run `npx skills list` or `bunx skills list` from the game project and look for `weixin-game`. Add `-g` for
+global installs. For the Claude Code plugin, use `/plugin`. Then ask your agent to load `weixin-game` and show its `SKILL.md` path.
 [Codex CLI/IDE](https://developers.openai.com/codex/skills) also supports `/skills` and explicit `$weixin-game` invocation.
 If discovery is stale, start a new session or restart the agent. Discovery alone does not verify game behavior.
 
-**Update:** run `bunx skills update` for CLI installs. For the Claude plugin, run
-`claude plugin update weixin-game@weixin-game-skill`, or enable auto-update for its marketplace in `/plugin`.
-Manual copies must be replaced with the complete updated skill folder.
+**Update:** run `npx skills update` or `bunx skills update`. For the Claude plugin, run
+`claude plugin update weixin-game@weixin-game-skill` or enable marketplace auto-update in `/plugin`. Replace manual copies with the complete updated skill folder.
 
 ## Use
 
@@ -92,6 +94,7 @@ The starter's `js/platform/` covers canvas scaling, the menu button and safe are
 
 ## Changelog
 
+- **2.3.1 (2026-11-21):** Added a one-line install with `npx` or Bun, plus steps to verify and update the skill.
 - **2.3.0 (2026-11-13):** Added callback-only async API rules (`wx.getPrivacySetting`, `wx.getPhoneNumber`, `wx.setDeviceOrientation`, `Canvas.toTempFilePath`, `RankManager.getScore`), `RankManager` score storage and tournaments (3.14.2+), Chat Tool mode and updatable cards (3.7.12+), official floating components (`wx.getOfficialComponentsInfo` `isVisible` vs sample `isShow` conflict), iOS High Performance mode rules and `PVRTC` texture conflict, starter `isIOSHighPerformanceMode` fallback and `obeyMuteSwitch` option (`wx.setInnerAudioOption` WebAudio caveat), offline mode (3.16.0+), HTTPS encrypted channels (`user-encryptkey`), Recharge Center (`PayChannel: 1`), `getStableAccessToken`, mini-game UGC/anti-cheat APIs, JS/Unity code hardening, `WXWeakRef`, on-device AI/VisionKit, `wx-doc.sh` aliases, and ecosystem guidance for Unity/Tuanjie (`WXAssetBundle`, texture/shader/BGM tuning), Cocos 3.8 (`cacheManager`, `Separate Engine`, WASM physics), LayaAir 3, `three-platformize`/WebGL `preserveDrawingBuffer` capture, `Layout.updateViewPort`, and MP static privacy-scan pitfalls (171 facts).
 - **2.2.0 (2026-11-10):** Added tap-gated APIs (`wx.onTouchEnd`), launch scenes and add-to-desktop (`1023`), poster sharing (`wx.showShareImageMenu`), `wx.getRelationFriendList`, system subscriptions, `wx.createPageManager`, video, official plugins, periodic update, `SocketTask`/HTTP/2, API rate limits, EmscriptenGLX, phone profiling/cloud test, staged release, source maps, `miniprogram-ci`, four-table capability map, Setext doc parsing, and 3.8.22 typings (130 facts).
 - **2.1.0 (2026-11-09):** Replaced retired `wx.createBannerAd` with `wx.createCustomAd` (+ `ohos` conflict); added rewarded-ad SSV, `WXWebAssembly`, HarmonyOS (`ohos`), PC desktop rules, weak-network, HTTPDNS, pre-fetch, 1GB storage, scene telemetry, private shares, and Promise-rejection guards.
@@ -106,16 +109,17 @@ The starter's `js/platform/` covers canvas scaling, the menu button and safe are
 
 ## What's been tested
 
-| Check                                                            | How                           |
-| ---------------------------------------------------------------- | ----------------------------- |
-| Starter logic and platform code against a mocked `wx`            | Automated, `bun qc`           |
-| Doc snippets against the official `wx` type definitions          | Automated, `bun qc`           |
-| Facts, links and API names against the live docs                 | Automated, weekly             |
-| All three install routes                                         | Run by hand                   |
-| Codex, Cursor and Antigravity CLIs find the skill                | Run by hand                   |
-| A real round in headless Chromium on four screen shapes          | Run by hand, with a stub `wx` |
-| A real round in the WeChat DevTools simulator, with a test AppID | Run by hand                   |
-| Real phones                                                      | **Not yet run**               |
+| Check                                                            | How                            |
+| ---------------------------------------------------------------- | ------------------------------ |
+| Starter logic and platform code against a mocked `wx`            | Automated, `bun qc`            |
+| Doc snippets against the official `wx` type definitions          | Automated, `bun qc`            |
+| Facts, links and API names against the live docs                 | Automated, weekly              |
+| All three install routes                                         | Run by hand                    |
+| GitHub shorthand via Bun installs the complete skill for Codex   | Checked in a temporary project |
+| Codex, Cursor and Antigravity CLIs find the skill                | Run by hand                    |
+| A real round in headless Chromium on four screen shapes          | Run by hand, with a stub `wx`  |
+| A real round in the WeChat DevTools simulator, with a test AppID | Run by hand                    |
+| Real phones                                                      | **Not yet run**                |
 
 Trigger tests and coding-task comparisons ran on Claude only, so the other tools are confirmed to find the skill but not measured on how well they follow it. The 2.2.0 and 2.3.0 examples (sockets, posters, recommend sheet, `RankManager`, Chat Tool, official overlays, `getPrivacySetting`) are checked against the docs and mocks only. Nothing has run on a phone yet, and DevTools is only a simulator, so check real iOS and Android phones before you ship. Undocumented rendering behavior uses feature detection.
 
